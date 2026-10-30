@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Docs
+Comment=Crear documentos de Google
+Exec=xdg-open https://docs.google.com/document/create
+Icon=google-docs
+Terminal=false
+Categories=Office;WordProcessor;
+StartupNotify=true

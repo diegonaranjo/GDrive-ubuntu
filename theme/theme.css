@@ -1,0 +1,114 @@
+/* ============================================================
+   GDrive theme — identidad Google Drive sobre libadwaita
+   ============================================================ */
+
+/* ─── Paleta de estado ─── */
+@define-color gdrive_idle    #1E8E3E;
+@define-color gdrive_sync    #1A73E8;
+@define-color gdrive_paused  #F9AB00;
+@define-color gdrive_error   #D93025;
+
+/* ─── Sidebar ─── */
+.sidebar {
+    background: alpha(@theme_fg_color, 0.03);
+    padding: 6px 0;
+}
+
+.sidebar-item {
+    padding: 8px 12px;
+    border-radius: 12px;
+    margin: 2px 8px;
+    min-height: 36px;
+    transition: background 150ms ease, transform 150ms ease;
+    border-left: 3px solid transparent;
+}
+.sidebar-item:hover {
+    background: alpha(@theme_fg_color, 0.08);
+}
+.sidebar-item.active {
+    background: alpha(@accent_bg_color, 0.18);
+    border-left-color: @accent_bg_color;
+}
+.sidebar-item:active {
+    transform: scale(0.98);
+}
+
+/* ─── Badges de estado (sidebar dot) ─── */
+.status-dot {
+    border-radius: 9999px;
+    min-width: 8px;
+    min-height: 8px;
+    margin: 4px;
+    box-shadow: 0 0 0 2px alpha(@theme_bg_color, 0.9);
+}
+.status-dot.idle    { background: @gdrive_idle; }
+.status-dot.syncing { background: @gdrive_sync; animation: pulse 1.4s ease-in-out infinite; }
+.status-dot.paused  { background: @gdrive_paused; }
+.status-dot.error   { background: @gdrive_error; }
+
+/* ─── Status badge circular (StatusPage) ─── */
+.status-badge {
+    border-radius: 9999px;
+    padding: 28px;
+    box-shadow: 0 0 0 6px alpha(currentColor, 0.10),
+                0 0 0 14px alpha(currentColor, 0.05);
+}
+.status-badge.syncing {
+    animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%   { box-shadow: 0 0 0 4px alpha(currentColor, 0.18); }
+    50%  { box-shadow: 0 0 0 10px alpha(currentColor, 0.06); }
+    100% { box-shadow: 0 0 0 4px alpha(currentColor, 0.18); }
+}
+
+/* ─── Tarjetas PreferencesGroup con elevación sutil ─── */
+.preferencesgroup {
+    border-radius: 14px;
+    box-shadow: 0 1px 3px alpha(#000, 0.06),
+                0 1px 2px alpha(#000, 0.04);
+}
+
+/* ─── Botones pill ─── */
+button.pill {
+    padding: 6px 18px;
+    border-radius: 9999px;
+    transition: filter 150ms ease, background 150ms ease;
+}
+button.pill.suggested-action:hover {
+    filter: brightness(1.08);
+}
+button.pill.destructive-action:hover {
+    filter: brightness(1.08);
+}
+
+/* ─── Barra de almacenamiento con gradiente ─── */
+.storage-bar {
+    min-height: 22px;
+    border-radius: 12px;
+}
+.storage-bar progress {
+    background: linear-gradient(90deg, #1A73E8 0%, #1E8E3E 100%);
+    border-radius: 12px;
+}
+.storage-bar trough {
+    border-radius: 12px;
+}
+
+/* ─── Labels ─── */
+.dim-label {
+    opacity: 0.65;
+}
+
+/* ─── Animación de aparición de páginas (sutil) ─── */
+.content-page {
+    background: @theme_bg_color;
+}
+
+/* ─── Tema oscuro: ajustar sombras ─── */
+@media (prefers-color-scheme: dark) {
+    .preferencesgroup {
+        box-shadow: 0 1px 3px alpha(#000, 0.30);
+    }
+}

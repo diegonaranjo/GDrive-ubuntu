@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Drive
+Comment=Cliente de escritorio para Google Drive
+# Reemplazar RUTA_DEL_PROYECTO por la ruta absoluta donde clonaste el repo.
+# setup.sh genera este archivo automáticamente con la ruta correcta.
+Exec=bash RUTA_DEL_PROYECTO/launch.sh
+Icon=google-drive
+Terminal=false
+Categories=Utility;FileTools;Network;
+StartupNotify=true
+Keywords=Google;Drive;Cloud;Sync;

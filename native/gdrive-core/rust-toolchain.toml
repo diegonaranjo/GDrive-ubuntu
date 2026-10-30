@@ -1,0 +1,13 @@
+# Pins the Rust toolchain for the native core (native/gdrive-core/).
+#
+# `rustup` automatically selects this toolchain when working inside this
+# directory or any subdirectory. Contributors without `rustup` should install
+# `stable`; the CI uses the same `stable` channel via dtolnay/rust-toolchain.
+#
+# We pin to the `stable` channel (not a specific patch version) so the project
+# tracks the latest stable release while still declaring the required
+# components (`rustfmt` and `clippy`, needed by the CI checks).
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

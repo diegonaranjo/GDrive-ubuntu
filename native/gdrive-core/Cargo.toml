@@ -1,0 +1,52 @@
+[package]
+name = "gdrive-core"
+version = "1.1.0"
+edition = "2021"
+description = "Core de GDrive: config, sync (rclone bisync), logging e i18n. Motor nativo para el cliente de escritorio."
+license = "MIT"
+
+[lib]
+name = "gdrive_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gdrive-core"
+path = "src/main.rs"
+
+[[bin]]
+name = "gdrive-daemon"
+path = "src/bin/daemon.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+# Detección de cambios en el sistema de archivos (inotify en Linux) para
+# disparar la sincronización en tiempo real. Serie 8 estable.
+notify = "8"
+# D-Bus (Fase 2). Sólo tokio como runtime para no lanzar hilos extra detrás.
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+# Lints del proyecto. Ver rust-best-practices, capítulo 2. Se ejecutan con
+# `cargo clippy --all-targets --all-features --locked -- -D warnings`.
+# `pedantic`/`nursery` se dejan como opt-in (ver Makefile/CI) por su ruido.
+# Las prioridades explícitas evitan conflictos entre grupos y lints sueltos.
+[lints.rust]
+unsafe_code = { level = "forbid", priority = 3 }
+nonstandard_style = { level = "deny", priority = -2 }
+future-incompatible = { level = "warn", priority = -3 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+redundant_clone = { level = "warn", priority = 1 }
+clone_on_copy = { level = "warn", priority = 1 }
+needless_collect = { level = "warn", priority = 1 }
+map_unwrap_or = { level = "warn", priority = 1 }
+
+[profile.release]
+opt-level = 2
+strip = true

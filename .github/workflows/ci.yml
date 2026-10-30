@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust (fmt + clippy + test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native/gdrive-core
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar toolchain estable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache de dependencias
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/gdrive-core
+
+      - name: Formato (rustfmt --check)
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (linting estricto)
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+      - name: Tests
+        run: cargo test --all-targets --locked
+
+      - name: Build release
+        run: cargo build --release --locked
+
+  python:
+    name: Python (compilación de sintaxis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verificar sintaxis de la UI
+        run: |
+          python3 -m py_compile gdrive/*.py gdrive/pages/*.py gdrive-app.py gdrive-tray.py

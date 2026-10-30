@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Drive
+Comment=Acceder a Google Drive
+Exec=xdg-open drive:///?scheme=googledrive
+Icon=google-drive
+Terminal=false
+Categories=Utility;FileTools;
+StartupNotify=true

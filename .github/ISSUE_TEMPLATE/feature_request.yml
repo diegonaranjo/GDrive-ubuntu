@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose something the client should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem this solves
+      description: What you cannot do today, and why the existing pages or the tray do not cover it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Which page, setting or action changes, and what the default should be.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Sync engine (rclone bisync)
+        - Main window (GTK4 / libadwaita)
+        - Tray (GTK3 / AppIndicator)
+        - Settings and configuration
+        - Packaging (deb, systemd, autostart)
+        - Nautilus extension
+    validations:
+      required: true

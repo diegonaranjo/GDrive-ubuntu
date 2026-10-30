@@ -1,0 +1,13 @@
+Package: google-drive-ubuntu
+Version: 1.1.0
+Section: utils
+Priority: optional
+Architecture: all
+Depends: gnome-online-accounts, nautilus, python3-nautilus, gir1.2-goa-1.0, gir1.2-nautilus-4.1, dbus-x11, xdg-utils, libglib2.0-bin, curl, rclone
+Recommends: gnome-terminal
+Maintainer: Google Drive Ubuntu Project
+Description: Google Drive Client for Ubuntu
+ Cliente equivalente a Google Drive para macOS.
+ Incluye integración con GNOME Online Accounts,
+ extensión de Nautilus, accesos directos y
+ sincronización automática con rclone.
