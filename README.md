@@ -268,7 +268,8 @@ GDrive/
 ├── verify.sh                # Verifies the installation
 ├── Makefile                 # Commands: build, install, verify, uninstall
 ├── native/                  # Native core (Rust) — the sync engine + D-Bus daemon
-│   └── gdrive-core/         # Rust crate: config, sync (rclone bisync), logging, i18n, daemon
+│   ├── gdrive-core/         # Rust crate: config, sync (rclone bisync), logging, i18n, daemon
+│   └── gdrive-ui/           # Rust port of the GTK4 window — work in progress, not shipped yet
 ├── gdrive/                  # Main package (modules)
 │   ├── config.py            # DEFAULTS, load/save
 │   ├── constants.py         # APP_ID, versions, Google palette
@@ -325,11 +326,24 @@ The crate follows [Apollo's Rust best practices](https://github.com/apollographq
 `rustfmt.toml`, and Clippy lints configured in `Cargo.toml`. The toolchain is
 pinned to `stable` with `rustfmt` + `clippy` via `native/gdrive-core/rust-toolchain.toml`.
 
+### Native UI (Rust, in progress)
+
+`native/gdrive-ui/` is an early port of the Python window to `gtk4` +
+`libadwaita`. It compiles and talks to the same D-Bus daemon, but it is not
+installed, packaged, or covered by CI — the shipped UI is still
+`gdrive-app.py` + `gdrive/`. Treat it as a contribution target, not a release
+artifact.
+
+```bash
+cd native/gdrive-ui
+cargo check --all-targets --locked
+```
+
 ### CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
-Rust `fmt` + `clippy -D warnings` + tests + release build, and Python syntax
-verification.
+Rust `fmt` + `clippy -D warnings` + tests + release build for `gdrive-core`, and
+Python syntax verification.
 
 ### Contributing
 

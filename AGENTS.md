@@ -28,6 +28,7 @@ build-deb.sh           # builds the .deb package
 verify.sh              # verifies the installation
 Makefile               # build / install / verify / uninstall targets
 native/gdrive-core/    # native Rust core: config, sync (rclone bisync), logging, i18n, D-Bus daemon
+native/gdrive-ui/      # Rust port of the GTK4 window (WIP: compiles, not installed, not in CI)
 DEBIAN/control         # .deb metadata
 nautilus-extension/    # Python Nautilus extension (context menu)
 icons/                 # google-drive.svg + Lucide theme
