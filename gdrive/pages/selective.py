@@ -1,4 +1,4 @@
-"""Página de Carpetas (sync selectiva)."""
+"""Folders page (selective sync)."""
 
 import threading
 

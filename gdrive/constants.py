@@ -1,17 +1,17 @@
-"""Constantes centralizadas de la aplicación."""
+"""Centralized application constants."""
 
 import os
 from pathlib import Path
 
-# El daemon nativo (Rust, `gdrive-daemon`) es dueño del nombre de bus histórico;
-# la UI GTK4 usa un ID propio para no colisionar.
+# The native daemon (Rust, `gdrive-daemon`) owns the historical bus name;
+# the GTK4 UI uses its own ID so they do not collide.
 DAEMON_ID = "com.gdrive.Client"
 DAEMON_PATH = "/com/gdrive/Client"
 DAEMON_INTERFACE = "com.gdrive.Daemon1"
 
 APP_ID = "com.gdrive.ClientUI"
 APP_NAME = "Google Drive"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 RCLONE_REMOTE = os.environ.get("GDRIVE_REMOTE", "gdrive:")
 SYNC_DIR_DEFAULT = str(Path.home() / "GoogleDrive")

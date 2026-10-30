@@ -1,4 +1,4 @@
-"""Configuración: defaults, carga y guardado."""
+"""Configuration: defaults, loading and saving."""
 
 import json
 from pathlib import Path

@@ -1,24 +1,24 @@
-//! Daemon D-Bus de GDrive (Fase 2).
+//! GDrive's D-Bus daemon (Phase 2).
 //!
-//! Expone el motor (`SyncEngine`) a la UI GTK4 en Python mediante D-Bus. Sirve el
-//! nombre de bus `com.gdrive.Client` (compatible con el tray icon actual, que
-//! hace `gapplication action com.gdrive.Client <name>` vía `org.gtk.Actions`).
+//! Exposes the engine (`SyncEngine`) to the Python GTK4 UI over D-Bus. Serves the
+//! bus name `com.gdrive.Client` (compatible with the current tray icon, which
+//! runs `gapplication action com.gdrive.Client <name>` via `org.gtk.Actions`).
 //!
-//! Interfaz principal (para la UI): `com.gdrive.Daemon1`
+//! Main interface (for the UI): `com.gdrive.Daemon1`
 //!   - `SyncNow() -> s`
 //!   - `Pause()`, `Resume()`
 //!   - `GetStatus() -> a{ss}`   (map: status, paused, version, ...)
 //!   - `Quit()`
-//!   - señal `StatusChanged(s status, b paused)`
+//!   - `StatusChanged(s status, b paused)` signal
 //!
-//! El sync corre en `tokio::task::spawn_blocking` (rclone es subproceso
-//! bloqueante), de modo que el reactor nunca se bloquea.
+//! The sync runs in `tokio::task::spawn_blocking` (rclone is a blocking
+//! subprocess), so the reactor never blocks.
 
-//! El macro `#[interface]` de `zbus` genera el "glue" de las interfaces D-Bus
-//! como items públicos sin documentar, disparando falsos positivos de
-//! `missing_docs` sobre código que no es el nuestro. La documentación real de
-//! cada método vive en sus comentarios `///` (que zbus usa para el XML de la
-//! interfaz). Se desactiva el lint aquí, no en todo el crate.
+//! The `zbus` `#[interface]` macro generates the D-Bus interfaces' "glue" as
+//! public items without documentation, triggering false positives from
+//! `missing_docs` on code that is not ours. The real documentation of
+//! each method lives in its `///` comments (which zbus uses for the interface
+//! XML). The lint is disabled here, not crate-wide.
 #![allow(missing_docs)]
 
 use std::collections::HashMap;
@@ -35,26 +35,26 @@ use crate::logging::{log_write, Level};
 use crate::sync::{interval_seconds, SyncEngine, SyncStatus};
 use crate::watcher::DirWatcher;
 
-/// Estado compartido reactor ↔ hilo de sync.
+/// Shared state: reactor ↔ sync thread.
 #[derive(Debug)]
 pub struct SharedState {
-    /// Configuración actual (protegida por mutex para acceso multi-hilo).
+    /// Current configuration (mutex-protected for multi-threaded access).
     pub config: Mutex<Config>,
-    /// Estado de sincronización actual.
+    /// Current synchronization status.
     pub status: Mutex<SyncStatus>,
-    /// `true` mientras hay una sincronización en curso. `Arc` para compartirlo
-    /// clonado con el watcher de cambios (que descarta eventos durante un sync).
+    /// `true` while a sync is in progress. `Arc` to share it, cloned, with
+    /// the change watcher (which discards events during a sync).
     pub syncing: Arc<AtomicBool>,
-    /// `true` cuando se ha solicitado la salida del daemon.
+    /// `true` when daemon shutdown has been requested.
     pub quit_requested: AtomicBool,
-    /// Progreso actual `(transferred, total)` del sync en curso.
+    /// Current progress `(transferred, total)` of the in-flight sync.
     pub progress: Mutex<(u64, u64)>,
-    /// Velocidad actual (formateada) del sync en curso.
+    /// Current (formatted) speed of the in-flight sync.
     pub speed: Mutex<String>,
 }
 
 impl SharedState {
-    /// Crea un estado compartido con la configuración dada y estado `idle`.
+    /// Creates a shared state with the given config and `idle` status.
     pub fn new(config: Config) -> Arc<Self> {
         Arc::new(SharedState {
             config: Mutex::new(config),
@@ -66,33 +66,33 @@ impl SharedState {
         })
     }
 
-    /// Devuelve el estado de sincronización actual.
+    /// Returns the current synchronization status.
     pub fn current_status(&self) -> SyncStatus {
         *self.status.lock().unwrap()
     }
 
-    /// `true` si la sincronización está pausada según la configuración.
+    /// `true` if synchronization is paused according to the config.
     pub fn is_paused(&self) -> bool {
         self.config.lock().unwrap().paused
     }
 
-    /// Solicita la terminación del daemon (pone `quit_requested` a `true`).
+    /// Requests daemon termination (sets `quit_requested` to `true`).
     pub fn request_quit(&self) {
         self.quit_requested.store(true, Ordering::SeqCst);
     }
 }
 
-/// Interfaz rica principal del daemon.
+/// Main rich interface of the daemon.
 pub struct Daemon {
     state: Arc<SharedState>,
 }
 
-// zbus genera la documentación de los métodos de la interfaz a partir de los
-// comentarios `///` de cada método, por lo que `missing_docs` daría falsos
-// positivos sobre el código expandido por el macro `#[interface]`.
+// zbus generates the interface methods' documentation from each method's `///`
+// comments, so `missing_docs` would raise false positives over the code
+// expanded by the `#[interface]` macro.
 #[interface(name = "com.gdrive.Daemon1")]
 impl Daemon {
-    /// Arranca una sincronización manual. Devuelve mensaje de resultado.
+    /// Starts a manual synchronization. Returns a result message.
     async fn sync_now(
         &mut self,
         #[zbus(signal_emitter)] emitter: zbus::object_server::SignalEmitter<'_>,
@@ -100,7 +100,7 @@ impl Daemon {
         run_sync(&self.state, &emitter).await
     }
 
-    /// Pausa la sincronización (persiste `paused=true`).
+    /// Pauses synchronization (persists `paused=true`).
     async fn pause(
         &mut self,
         #[zbus(signal_emitter)] emitter: zbus::object_server::SignalEmitter<'_>,
@@ -108,7 +108,7 @@ impl Daemon {
         set_paused(&self.state, true, &emitter).await;
     }
 
-    /// Reanuda la sincronización (persiste `paused=false`).
+    /// Resumes synchronization (persists `paused=false`).
     async fn resume(
         &mut self,
         #[zbus(signal_emitter)] emitter: zbus::object_server::SignalEmitter<'_>,
@@ -116,7 +116,7 @@ impl Daemon {
         set_paused(&self.state, false, &emitter).await;
     }
 
-    /// Devuelve el estado actual como `a{ss}`.
+    /// Returns the current status as `a{ss}`.
     async fn get_status(&mut self) -> HashMap<String, String> {
         let cfg = self.state.config.lock().unwrap();
         let status = self.state.current_status();
@@ -129,8 +129,8 @@ impl Daemon {
         m
     }
 
-    /// Actualiza la configuración desde un `a{ss}` (p. ej. `sync_dir`, idioma).
-    /// Devuelve `true` si hubo cambios persistidos.
+    /// Updates the configuration from an `a{ss}` (e.g. `sync_dir`, language).
+    /// Returns `true` if there were persisted changes.
     async fn update_config(&mut self, changes: HashMap<String, String>) -> bool {
         let mut cfg = self.state.config.lock().unwrap();
         let mut changed = false;
@@ -145,7 +145,7 @@ impl Daemon {
         changed
     }
 
-    /// Solicita terminar el daemon (el binario observa `quit_requested`).
+    /// Requests the daemon to quit (the binary observes `quit_requested`).
     async fn quit(&mut self) {
         self.state.request_quit();
         log_write(
@@ -157,7 +157,7 @@ impl Daemon {
         );
     }
 
-    /// Señal emitida cuando cambia el estado de sincronización.
+    /// Signal emitted when the synchronization status changes.
     #[zbus(signal)]
     async fn status_changed(
         emitter: &zbus::object_server::SignalEmitter<'_>,
@@ -165,7 +165,7 @@ impl Daemon {
         paused: bool,
     ) -> zbus::Result<()>;
 
-    /// Señal emitida por cada línea de progreso de rclone: `(texto, transferido, total)`.
+    /// Signal emitted for each rclone progress line: `(text, transferred, total)`.
     #[zbus(signal)]
     async fn progress(
         emitter: &zbus::object_server::SignalEmitter<'_>,
@@ -174,14 +174,14 @@ impl Daemon {
         total: u64,
     ) -> zbus::Result<()>;
 
-    /// Señal emitida cuando cambia la velocidad de transferencia.
+    /// Signal emitted when the transfer speed changes.
     #[zbus(signal)]
     async fn speed_changed(
         emitter: &zbus::object_server::SignalEmitter<'_>,
         speed: &str,
     ) -> zbus::Result<()>;
 
-    /// Señal emitida al terminar un sync: `(ok, mensaje)`.
+    /// Signal emitted when a sync finishes: `(ok, message)`.
     #[zbus(signal)]
     async fn sync_finished(
         emitter: &zbus::object_server::SignalEmitter<'_>,
@@ -189,7 +189,7 @@ impl Daemon {
         message: &str,
     ) -> zbus::Result<()>;
 
-    /// Devuelve el progreso actual `(transferred, total, speed)` como `(ttt)`.
+    /// Returns the current progress `(transferred, total, speed)` as `(ttt)`.
     async fn get_progress(&mut self) -> (u64, u64, String) {
         let p = *self.state.progress.lock().unwrap();
         let s = self.state.speed.lock().unwrap().clone();
@@ -197,20 +197,20 @@ impl Daemon {
     }
 }
 
-/// Implementa `org.gtk.Actions` para compatibilidad con `gapplication action`.
-/// Se expone en el mismo path `/com/gdrive/Client`.
+/// Implements `org.gtk.Actions` for compatibility with `gapplication action`.
+/// Exposed at the same path `/com/gdrive/Client`.
 pub struct GtkActions {
     state: Arc<SharedState>,
 }
 
 #[interface(name = "org.gtk.Actions")]
 impl GtkActions {
-    /// `List`: nombres de acciones.
+    /// `List`: action names.
     async fn list(&self) -> Vec<String> {
         action_names()
     }
 
-    /// `Activate`: invocado por el ActionMap de GTK.
+    /// `Activate`: invoked by GTK's ActionMap.
     async fn activate(
         &mut self,
         action_name: &str,
@@ -222,21 +222,21 @@ impl GtkActions {
     }
 }
 
-/// Implementa `org.freedesktop.Application`, que es lo que realmente invoca
-/// `gapplication action <app-id> <name>` (vía `ActivateAction`).
+/// Implements `org.freedesktop.Application`, which is what
+/// `gapplication action <app-id> <name>` actually invokes (via `ActivateAction`).
 pub struct FdoApplication {
     state: Arc<SharedState>,
 }
 
 #[interface(name = "org.freedesktop.Application")]
 impl FdoApplication {
-    /// `Activate`: abre/activa la app (no-op: el daemon ya está activo).
+    /// `Activate`: opens/activates the app (no-op: the daemon is already active).
     async fn activate(&mut self) {}
 
-    /// `Open`: no-op (no gestionamos URIs/file-schemes por ahora).
+    /// `Open`: no-op (we don't handle URIs/file-schemes for now).
     async fn open(&mut self, _uris: Vec<String>, _platform_data: HashMap<String, OwnedValue>) {}
 
-    /// `ActivateAction`: lo que dispara `gapplication action com.gdrive.Client <name>`.
+    /// `ActivateAction`: what triggers `gapplication action com.gdrive.Client <name>`.
     async fn activate_action(
         &mut self,
         action_name: &str,
@@ -248,12 +248,12 @@ impl FdoApplication {
     }
 }
 
-/// Nombres de acciones expuestas (compartidos entre `org.gtk.Actions.List` y doc).
+/// Exposed action names (shared between `org.gtk.Actions.List` and docs).
 fn action_names() -> Vec<String> {
     vec!["sync-now".into(), "pause".into(), "quit".into()]
 }
 
-/// Despacha una acción por nombre, compartida entre `org.gtk.Actions` y
+/// Dispatches an action by name, shared between `org.gtk.Actions` and
 /// `org.freedesktop.Application`.
 async fn dispatch_action(
     state: &Arc<SharedState>,
@@ -272,7 +272,7 @@ async fn dispatch_action(
     }
 }
 
-/// Aplica un campo de configuración a partir de `(key, value)` en string.
+/// Applies a configuration field from a stringified `(key, value)`.
 fn apply_config_field(cfg: &mut Config, key: &str, value: &str) -> bool {
     match key {
         "sync_dir" => {
@@ -364,9 +364,9 @@ fn apply_config_field(cfg: &mut Config, key: &str, value: &str) -> bool {
     }
 }
 
-/// Ejecuta el sync en un hilo de bloqueo de forma **desacoplada**: devuelve
-/// inmediatamente (para no bloquear la llamada D-Bus) y emite `StatusChanged`
-/// al terminar. Devuelve un mensaje de aceptación ("started"/"already_syncing").
+/// Runs the sync on a blocking thread in a **decoupled** way: returns
+/// immediately (so as not to block the D-Bus call) and emits `StatusChanged`
+/// when it ends. Returns an acceptance message ("started"/"already_syncing").
 async fn run_sync(
     state: &Arc<SharedState>,
     emitter: &zbus::object_server::SignalEmitter<'_>,
@@ -380,19 +380,19 @@ async fn run_sync(
     let engine = { SyncEngine::new(state.config.lock().unwrap().clone()) };
     let state_clone = state.clone();
 
-    // Capturar la conexión de sesión para emitir señales desde el task async.
+    // Capture the session connection to emit signals from the async task.
     let conn_for_signals = zbus::Connection::session().await.ok();
 
-    // Desacoplar: lanzar el sync en background y responder ya.
+    // Decouple: launch the sync in background and respond now.
     tokio::task::spawn(async move {
-        // Resetear progreso/velocidad al arrancar.
+        // Reset progress/speed at startup.
         {
             *state_clone.progress.lock().unwrap() = (0, 0);
             state_clone.speed.lock().unwrap().clear();
         }
 
-        // Task de reenvío: observa el estado compartido y emite señales D-Bus
-        // mientras el sync esté en curso (hilo bloqueante + reactor separados).
+        // Forwarding task: watches the shared state and emits D-Bus signals
+        // while the sync is in progress (blocking thread + separate reactor).
         let state_poll = state_clone.clone();
         let conn_progress = conn_for_signals.clone();
         tokio::task::spawn(async move {
@@ -480,7 +480,7 @@ async fn run_sync(
             SyncStatus::Idle
         };
 
-        // Emitir las señales de fin de sync.
+        // Emit the end-of-sync signals.
         if let Some(conn) = &conn_for_signals {
             let path = daemon_object_path();
             if let Ok(emitter) = zbus::object_server::SignalEmitter::new(conn, path) {
@@ -503,13 +503,13 @@ async fn run_sync(
     "started".to_string()
 }
 
-/// Actualiza estado **sin** emitir señal (para usar dentro de tareas separadas).
+/// Updates the status **without** emitting a signal (for use inside detached tasks).
 fn set_status_nosignal(state: &Arc<SharedState>, status: SyncStatus) {
     let mut s = state.status.lock().unwrap();
     *s = status;
 }
 
-/// Actualiza estado + emite `StatusChanged`.
+/// Updates the status + emits `StatusChanged`.
 async fn set_status(
     state: &Arc<SharedState>,
     status: SyncStatus,
@@ -545,8 +545,8 @@ async fn set_paused(
     set_status(state, new_status, emitter).await;
 }
 
-/// Construye la conexión y sirve las interfaces. Devuelve la conexión (mantenerla
-/// viva mantiene el servicio activo).
+/// Builds the connection and serves the interfaces. Returns the connection (keeping
+/// it alive keeps the service active).
 pub async fn build_server(state: Arc<SharedState>) -> zbus::Result<zbus::Connection> {
     let daemon = Daemon {
         state: state.clone(),
@@ -563,11 +563,11 @@ pub async fn build_server(state: Arc<SharedState>) -> zbus::Result<zbus::Connect
         .build()
         .await?;
 
-    // El nombre se pide **sin cola** (`DoNotQueue`), en lugar de con
-    // `Builder::name()`: esa variante encola la petición, así que un segundo
-    // `gdrive-daemon` quedaba vivo sin atender el bus pero con su programador de
-    // sync y su watcher activos. Dos motores corriendo bisync sobre el mismo par
-    // es justo lo que corrompía los listados.
+    // The name is requested **without queueing** (`DoNotQueue`), instead of via
+    // `Builder::name()`: that variant queues the request, so a second
+    // `gdrive-daemon` stayed alive without serving the bus but with its sync
+    // scheduler and its watcher still active. Two engines running bisync over the
+    // same pair is exactly what corrupted the listings.
     let reply = conn
         .request_name_with_flags(APP_ID, RequestNameFlags::DoNotQueue.into())
         .await?;
@@ -586,25 +586,25 @@ pub async fn build_server(state: Arc<SharedState>) -> zbus::Result<zbus::Connect
     Ok(conn)
 }
 
-/// Nombre y path del servicio (para tests/documentación).
+/// Service name and path (for tests/documentation).
 pub fn service_details() -> (&'static str, &'static str) {
     (APP_ID, "/com/gdrive/Client")
 }
 
-/// [`ObjectPath`] del servicio, validado una sola vez. El literal es estático y
-/// conocido, de modo que `expect` nunca falla en la práctica (evita repetir
-/// `try_from(...).unwrap()` en cada punto de emisión de señales).
+/// The service's [`ObjectPath`], validated once. The literal is static and
+/// known, so `expect` never fails in practice (avoids repeating
+/// `try_from(...).unwrap()` at each signal-emission point).
 fn daemon_object_path() -> zbus::zvariant::ObjectPath<'static> {
     use zbus::zvariant::ObjectPath;
     ObjectPath::try_from("/com/gdrive/Client").expect("path D-Bus estático válido")
 }
 
-/// Arranca el programador de sincronización periódica en segundo plano.
+/// Starts the periodic sync scheduler in the background.
 ///
-/// Respeta la regla de control explícito: **solo** sync automática si
-/// `sync_interval` está configurado con un valor distinto de `manual` y el
-/// sync no está pausado. Si hay una sincronización en curso, se salta el tick
-/// (nunca solapa dos syncs).
+/// Respects the explicit-control rule: **only** auto-sync if
+/// `sync_interval` is set to a value other than `manual` and the sync is
+/// not paused. If a sync is in progress, the tick is skipped
+/// (never overlaps two syncs).
 pub fn spawn_periodic_scheduler(state: Arc<SharedState>) {
     tokio::spawn(async move {
         loop {
@@ -619,8 +619,8 @@ pub fn spawn_periodic_scheduler(state: Arc<SharedState>) {
 
             if let Some(secs) = interval {
                 if !paused && !state.syncing.load(Ordering::SeqCst) {
-                    // Disparar un sync sin emitter de método: reutiliza run_sync
-                    // con un emitter reconstruido desde la conexión de sesión.
+                    // Trigger a sync without a method emitter: reuses run_sync
+                    // with an emitter rebuilt from the session connection.
                     if let Ok(conn) = zbus::Connection::session().await {
                         let path = daemon_object_path();
                         if let Ok(emitter) = zbus::object_server::SignalEmitter::new(&conn, path) {
@@ -628,27 +628,27 @@ pub fn spawn_periodic_scheduler(state: Arc<SharedState>) {
                         }
                     }
                 }
-                // Dormir el intervalo completo entre ticks.
+                // Sleep the full interval between ticks.
                 tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
             } else {
-                // `manual`: re-evaluar cada 30s por si cambia la config.
+                // `manual`: re-evaluate every 30s in case the config changes.
                 tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             }
         }
     });
 }
 
-/// Arranca la detección de cambios en tiempo real en `sync_dir`.
+/// Starts real-time change detection in `sync_dir`.
 ///
-/// Solo actúa si `config.watch_changes` está habilitado (desactivado por
-/// defecto, respetando el control explícito del usuario). Crea un
-/// [`DirWatcher`] que observa la carpeta y, tras el debounce, dispara un sync
-/// reutilizando [`run_sync`].
+/// Only acts if `config.watch_changes` is enabled (disabled by default,
+/// respecting the user's explicit control). Creates a [`DirWatcher`] that
+/// watches the folder and, after debouncing, triggers a sync reusing
+/// [`run_sync`].
 ///
-/// El task es **reactivo**: re-evalúa `watch_changes`/`sync_dir` cada pocos
-/// segundos, de modo que activar/desactivar el toggle desde la UI surte efecto
-/// sin reiniciar el daemon. El watcher descarta eventos mientras hay un sync en
-/// curso (evita el bucle de realimentación), usando `state.syncing`.
+/// The task is **reactive**: it re-evaluates `watch_changes`/`sync_dir` every few
+/// seconds, so turning the toggle on/off from the UI takes effect
+/// without restarting the daemon. The watcher discards events while a sync is in
+/// progress (avoids the feedback loop), using `state.syncing`.
 pub fn spawn_change_watcher(state: Arc<SharedState>) {
     tokio::spawn(async move {
         let mut rx: Option<std::sync::mpsc::Receiver<()>> = None;
@@ -665,7 +665,7 @@ pub fn spawn_change_watcher(state: Arc<SharedState>) {
             };
 
             match (watch, &watched_dir) {
-                // Arrancar si está activo y aún no observamos (o cambió la carpeta).
+                // Start if enabled and we're not watching yet (or the folder changed).
                 (true, None) => {
                     if !sync_dir.is_empty() {
                         let path = std::path::PathBuf::from(&sync_dir);
@@ -675,21 +675,21 @@ pub fn spawn_change_watcher(state: Arc<SharedState>) {
                                 watched_dir = Some(path);
                             }
                             Err(_) => {
-                                // Reintentaremos en el siguiente ciclo.
+                                // We will retry on the next cycle.
                             }
                         }
                     }
                 }
-                // Carpeta cambiada: reiniciar el watcher sobre la nueva ruta.
+                // Folder changed: restart the watcher on the new path.
                 (true, Some(_)) => {
                     let current_is_new =
                         watched_dir.as_deref() != Some(std::path::Path::new(&sync_dir));
                     if current_is_new {
-                        rx = None; // soltar → detiene el hilo anterior.
+                        rx = None; // drop → stops the previous thread.
                         watched_dir = None;
                     }
                 }
-                // Desactivado: detener.
+                // Disabled: stop.
                 (false, Some(_)) => {
                     rx = None;
                     watched_dir = None;
@@ -697,18 +697,18 @@ pub fn spawn_change_watcher(state: Arc<SharedState>) {
                 (false, None) => {}
             }
 
-            // Esperar evento o timeout para re-evaluar config.
+            // Wait for an event or timeout to re-evaluate the config.
             if let Some(r) = rx.as_ref() {
                 match r.recv_timeout(std::time::Duration::from_secs(3)) {
                     Ok(()) => {
-                        // Cambio detectado: disparar sync si procede.
+                        // Change detected: trigger sync if appropriate.
                         if !state.is_paused() && !state.syncing.load(Ordering::SeqCst) {
                             trigger_sync_from_watcher(&state).await;
                         }
                     }
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                        // El hilo interno del watcher murió; reiniciar.
+                        // The watcher's internal thread died; restart.
                         rx = None;
                         watched_dir = None;
                     }
@@ -720,7 +720,7 @@ pub fn spawn_change_watcher(state: Arc<SharedState>) {
     });
 }
 
-/// Crea y arranca un [`DirWatcher`] sobre `path`, registrando el resultado.
+/// Creates and starts a [`DirWatcher`] on `path`, recording the result.
 fn start_watcher(
     state: &Arc<SharedState>,
     path: &std::path::Path,
@@ -756,7 +756,7 @@ fn start_watcher(
     Ok(rx)
 }
 
-/// Dispara un sync desde el watcher, reconstruyendo el emitter de D-Bus.
+/// Triggers a sync from the watcher, rebuilding the D-Bus emitter.
 async fn trigger_sync_from_watcher(state: &Arc<SharedState>) {
     if let Ok(conn) = zbus::Connection::session().await {
         let path = daemon_object_path();

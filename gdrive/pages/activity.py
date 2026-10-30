@@ -1,4 +1,4 @@
-"""Página de Actividad."""
+"""Activity page."""
 
 import time
 

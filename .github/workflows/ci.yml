@@ -18,20 +18,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Instalar toolchain estable
+      - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
-      - name: Cache de dependencias
+      - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: native/gdrive-core
 
-      - name: Formato (rustfmt --check)
+      - name: Format (rustfmt --check)
         run: cargo fmt --all -- --check
 
-      - name: Clippy (linting estricto)
+      - name: Clippy (strict linting)
         run: cargo clippy --all-targets --all-features --locked -- -D warnings
 
       - name: Tests
@@ -41,13 +41,13 @@ jobs:
         run: cargo build --release --locked
 
   python:
-    name: Python (compilación de sintaxis)
+    name: Python (syntax compilation)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Verificar sintaxis de la UI
+      - name: Verify UI syntax
         run: |
           python3 -m py_compile gdrive/*.py gdrive/pages/*.py gdrive-app.py gdrive-tray.py

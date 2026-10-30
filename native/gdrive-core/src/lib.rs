@@ -1,17 +1,17 @@
-//! GDrive Core — motor nativo (Rust) del cliente de escritorio Google Drive.
+//! GDrive Core — native (Rust) engine of the Google Drive desktop client.
 //!
-//! Este crate reimplementa la lógica de orquestación que actualmente vive en
-//! `gdrive/sync.py`, `gdrive/config.py`, `gdrive/helpers.py` e `gdrive/i18n.py`
-//! del proyecto Python, con tipos seguros, `Result` en lugar de `None` mutantes
-//! y tests reales (`cargo test`).
+//! This crate reimplements the orchestration logic that lived in the Python
+//! project's `gdrive/config.py`, `gdrive/helpers.py` and `gdrive/i18n.py` (and
+//! its legacy `gdrive/sync.py`, removed in 1.1.0), with safe types, `Result`
+//! instead of mutating `None` and real tests (`cargo test`).
 //!
-//! El trabajo pesado (subir/bajar datos) lo sigue haciendo `rclone` como
-//! subproceso; este crate sólo arma los comandos, gestiona el estado y parsea
-//! la salida. La UI GTK4/libadwaita en Python se comunica con este núcleo vía
-//! D-Bus (fase posterior).
+//! The heavy work (uploading/downloading data) is still done by `rclone` as a
+//! subprocess; this crate only assembles the commands, manages the state and
+//! parses the output. The Python GTK4/libadwaita UI talks to this core over
+//! D-Bus (later phase).
 
-//! Los errores del crate están unificados en [`Error`] (implementado con
-//! `thiserror`); las funciones fallibles devuelven [`Result`].
+//! Crate errors are unified in [`Error`] (implemented with `thiserror`);
+//! fallible functions return [`Result`].
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]

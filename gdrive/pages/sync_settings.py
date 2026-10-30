@@ -1,4 +1,4 @@
-"""Página de Ajustes de Sincronización."""
+"""Sync Settings page."""
 
 import subprocess
 
@@ -11,9 +11,9 @@ from ..config import save_config
 from ..constants import SYNC_DIR_DEFAULT
 from ..i18n import t
 
-# Modos que el motor implementa hoy. `stream` (acceso bajo demanda) requiere un
-# backend de `rclone mount` que no existe: ofrecerlo equivalia a prometer una
-# descarga completa con otro nombre.
+# Modes the engine implements today. `stream` (on-demand access) needs a
+# `rclone mount` backend that does not exist: offering it meant promising a
+# full download under another name.
 MODES = ("mirror", "selective")
 
 
@@ -62,8 +62,8 @@ class SyncSettingsPage(Gtk.Box):
             ]),
         )
         guardado = config.get("sync_mode", "mirror")
-        # Un settings.json con "stream" (valor valido antes) no debe reventar la
-        # pagina: cae en el modo que el motor realmente va a ejecutar.
+        # A settings.json with "stream" (a valid value before) must not break the
+        # page: it falls back to the mode the engine is actually going to run.
         self._mode.set_selected(MODES.index(guardado) if guardado in MODES else 0)
         self._mode.connect("notify::selected", self._on_mode)
         g2.add(self._mode)
@@ -188,7 +188,7 @@ class SyncSettingsPage(Gtk.Box):
     def _on_watch(self, row, _):
         self.config["watch_changes"] = row.get_active()
         save_config(self.config)
-        # Empujar la config al daemon para que (re)arranque el watcher.
+        # Push the config to the daemon so it (re)starts the watcher.
         if hasattr(self.mgr, "_push_interval"):
             self.mgr._push_interval()
 

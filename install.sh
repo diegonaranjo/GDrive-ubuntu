@@ -18,29 +18,29 @@ error() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 
 check_root() {
     if [ "$EUID" -ne 0 ]; then
-        error "Ejecuta como root: sudo ./install.sh"
+        error "Run as root: sudo ./install.sh"
     fi
 }
 
 check_ubuntu() {
     if ! grep -qi "ubuntu" /etc/os-release 2>/dev/null; then
-        warn "Este script está diseñado para Ubuntu. Puede no funcionar en otras distribuciones."
+        warn "This script is designed for Ubuntu. It may not work on other distributions."
     fi
 }
 
 check_gnome() {
     if [ "$XDG_CURRENT_DESKTOP" != *"GNOME"* ] && [ "$XDG_CURRENT_DESKTOP" != *"ubuntu:GNOME"* ]; then
-        warn "Se detectó un escritorio diferente a GNOME. La integración nativa puede no funcionar."
+        warn "Detected a desktop other than GNOME. Native integration may not work."
     fi
 }
 
 update_system() {
-    log "Actualizando lista de paquetes..."
+    log "Updating package list..."
     apt-get update -qq
 }
 
 install_dependencies() {
-    log "Instalando dependencias..."
+    log "Installing dependencies..."
     apt-get install -y -qq \
         gnome-online-accounts \
         nautilus \
@@ -55,17 +55,17 @@ install_dependencies() {
 }
 
 install_rclone() {
-    log "Instalando rclone para sincronización manual..."
+    log "Installing rclone for manual synchronization..."
     if ! command -v rclone &> /dev/null; then
         curl -fsSL https://rclone.org/install.sh | bash 2>/dev/null
-        log "rclone instalado correctamente"
+        log "rclone installed successfully"
     else
-        warn "rclone ya está instalado"
+        warn "rclone is already installed"
     fi
 }
 
 configure_gnome_online_accounts() {
-    log "Configurando GNOME Online Accounts..."
+    log "Configuring GNOME Online Accounts..."
     
     GOA_CONFIG_DIR="/etc/xdg/autostart"
     GOA_DESKTOP="$GOA_CONFIG_DIR/gnome-online-accounts-service.desktop"
@@ -83,11 +83,11 @@ X-GNOME-AutoRestart=true
 EOF
     fi
     
-    log "GNOME Online Accounts configurado"
+    log "GNOME Online Accounts configured"
 }
 
 create_nautilus_extension() {
-    log "Creando extensión de Nautilus para Google Drive..."
+    log "Creating the Nautilus extension for Google Drive..."
     
     EXTENSION_DIR="/usr/share/nautilus-python/extensions"
     mkdir -p "$EXTENSION_DIR"
@@ -137,11 +137,11 @@ class GoogleDriveExtension(GObject.GObject, Nautilus.MenuProvider):
         return [top_menuitem]
 PYEOF
     
-    log "Extensión de Nautilus creada"
+    log "Nautilus extension created"
 }
 
 create_shortcuts() {
-    log "Creando accesos directos..."
+    log "Creating shortcuts..."
     
     SHORTCUTS_DIR="/usr/share/applications"
     
@@ -151,8 +151,9 @@ create_shortcuts() {
 Version=1.0
 Type=Application
 Name=Google Drive
-Comment=Acceder a Google Drive
-Exec=xdg-open drive:///?scheme=googledrive
+Comment=Open Google Drive
+Comment[es]=Acceder a Google Drive
+Exec=xdg-open "drive:///?scheme=googledrive"
 Icon=google-drive
 Terminal=false
 Categories=Utility;FileTools;
@@ -165,7 +166,8 @@ EOF
 Version=1.0
 Type=Application
 Name=Google Docs
-Comment=Crear documentos de Google
+Comment=Create Google documents
+Comment[es]=Crear documentos de Google
 Exec=xdg-open https://docs.google.com/document/create
 Icon=google-docs
 Terminal=false
@@ -179,7 +181,8 @@ EOF
 Version=1.0
 Type=Application
 Name=Google Sheets
-Comment=Crear hojas de cálculo de Google
+Comment=Create Google spreadsheets
+Comment[es]=Crear hojas de cálculo de Google
 Exec=xdg-open https://docs.google.com/spreadsheets/create
 Icon=google-sheets
 Terminal=false
@@ -193,7 +196,8 @@ EOF
 Version=1.0
 Type=Application
 Name=Google Slides
-Comment=Crear presentaciones de Google
+Comment=Create Google presentations
+Comment[es]=Crear presentaciones de Google
 Exec=xdg-open https://docs.google.com/presentation/create
 Icon=google-slides
 Terminal=false
@@ -201,11 +205,11 @@ Categories=Office;Presentation;
 StartupNotify=true
 EOF
     
-    log "Accesos directos creados"
+    log "Shortcuts created"
 }
 
 create_autostart() {
-    log "Configurando inicio automático..."
+    log "Configuring autostart..."
     
     REAL_USER="${SUDO_USER:-$USER}"
     REAL_HOME=$(eval echo "~$REAL_USER")
@@ -217,7 +221,8 @@ create_autostart() {
 [Desktop Entry]
 Type=Application
 Name=Google Drive Sync
-Comment=Sincronización automática de Google Drive
+Comment=Automatic Google Drive synchronization
+Comment[es]=Sincronización automática de Google Drive
 Exec=/usr/local/bin/gdrive-sync
 Hidden=false
 NoDisplay=true
@@ -257,11 +262,11 @@ SYNEOF
     
     chmod +x "/usr/local/bin/gdrive-sync"
     
-    log "Inicio automático configurado"
+    log "Autostart configured"
 }
 
 setup_rclone_config() {
-    log "Configurando rclone para Google Drive..."
+    log "Configuring rclone for Google Drive..."
     
     REAL_USER="${SUDO_USER:-$USER}"
     REAL_HOME=$(eval echo "~$REAL_USER")
@@ -279,14 +284,14 @@ token = {"access_token":"","token_type":"","refresh_token":"","expiry":""}
 trashed_only = false
 EOF
         chown -R "$REAL_USER":"$REAL_USER" "$REAL_HOME/.config/rclone"
-        warn "Configura rclone con: rclone config (selecciona 'gdrive')"
+        warn "Configure rclone with: rclone config (select 'gdrive')"
     else
-        warn "Ya existe configuración de rclone para gdrive"
+        warn "rclone configuration for gdrive already exists"
     fi
 }
 
 create_uninstaller() {
-    log "Creando desinstalador..."
+    log "Creating uninstaller..."
     
     cat > "/usr/local/bin/google-drive-uninstall" << 'UNINSTALLEOF'
 #!/bin/bash
@@ -299,7 +304,7 @@ set -e
 REAL_USER="${SUDO_USER:-$USER}"
 REAL_HOME=$(eval echo "~$REAL_USER")
 
-echo "Desinstalando Google Drive para Ubuntu..."
+echo "Uninstalling Google Drive for Ubuntu..."
 
 # Stop sync service
 pkill -f gdrive-sync 2>/dev/null || true
@@ -323,20 +328,20 @@ rm -f /usr/local/bin/google-drive-uninstall
 # Remove log
 rm -f /var/log/gdrive-sync.log
 
-echo "Desinstalación completada"
-echo "Los archivos en ~/GoogleDrive no han sido eliminados"
-echo "La configuración de rclone se mantiene en ~/.config/rclone/"
+echo "Uninstallation complete"
+echo "The files in ~/GoogleDrive have not been deleted"
+echo "The rclone configuration is kept in ~/.config/rclone/"
 UNINSTALLEOF
     
     chmod +x "/usr/local/bin/google-drive-uninstall"
     
-    log "Desinstalador creado en /usr/local/bin/google-drive-uninstall"
+    log "Uninstaller created at /usr/local/bin/google-drive-uninstall"
 }
 
 main() {
     echo "=========================================="
     echo "  Google Drive Client for Ubuntu"
-    echo "  Versión 1.0.0"
+    echo "  Version 1.1.0"
     echo "=========================================="
     echo
     
@@ -357,26 +362,26 @@ main() {
     
     echo
     echo "=========================================="
-    echo "  Instalación completada"
+    echo "  Installation complete"
     echo "=========================================="
     echo
-    echo "Pasos siguientes:"
-    echo "  1. Abre 'Cuentas en línea' desde Ajustes del sistema"
-    echo "  2. Agrega tu cuenta de Google"
-    echo "  3. Habilita la opción 'Archivos'"
-    echo "  4. Google Drive aparecerá en Nautilus (Archivos)"
+    echo "Next steps:"
+    echo "  1. Open 'Online Accounts' from System Settings"
+    echo "  2. Add your Google account"
+    echo "  3. Enable the 'Files' option"
+    echo "  4. Google Drive will appear in Nautilus (Files)"
     echo
-    echo "Para sincronización automática:"
-    echo "  Configura rclone: rclone config"
-    echo "  Selecciona 'gdrive' y sigue las instrucciones"
+    echo "For automatic synchronization:"
+    echo "  Configure rclone: rclone config"
+    echo "  Select 'gdrive' and follow the instructions"
     echo
-    echo "Accesos directos creados:"
+    echo "Shortcuts created:"
     echo "  - Google Drive"
     echo "  - Google Docs"
     echo "  - Google Sheets"
     echo "  - Google Slides"
     echo
-    echo "Para desinstalar:"
+    echo "To uninstall:"
     echo "  sudo google-drive-uninstall"
     echo
 }

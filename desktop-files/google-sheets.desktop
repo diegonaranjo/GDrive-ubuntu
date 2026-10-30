@@ -2,7 +2,8 @@
 Version=1.0
 Type=Application
 Name=Google Sheets
-Comment=Crear hojas de cálculo de Google
+Comment=Create Google spreadsheets
+Comment[es]=Crear hojas de cálculo de Google
 Exec=xdg-open https://docs.google.com/spreadsheets/create
 Icon=google-sheets
 Terminal=false

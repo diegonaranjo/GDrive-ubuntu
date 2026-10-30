@@ -1,9 +1,9 @@
-//! Entry-point binario del core (para smoke test / CLI mínima).
+//! Binary entry point of the core (for smoke tests / a minimal CLI).
 //!
-//! Útil para validar el toolchain y demostrar el motor en acción:
-//!   gdrive-core about        → imprime `rclone about` en JSON
-//!   gdrive-core authorized   → imprime `true`/`false` (token válido)
-//!   gdrive-core email        → imprime el email de la cuenta conectada
+//! Useful to validate the toolchain and show the engine in action:
+//!   gdrive-core about        → prints `rclone about` as JSON
+//!   gdrive-core authorized   → prints `true`/`false` (valid token)
+//!   gdrive-core email        → prints the email of the connected account
 
 use std::env;
 use std::process::ExitCode;
@@ -17,8 +17,8 @@ fn main() -> ExitCode {
     match cmd {
         "about" | "storage" => match rclone_about() {
             Some(v) => {
-                // `v` proviene de un JSON ya parseado; re-serializar con pretty no
-                // falla en la práctica. Ante lo inesperado se degrada a `{}`.
+                // `v` comes from an already parsed JSON; re-serializing with pretty
+                // does not fail in practice. On the unexpected it degrades to `{}`.
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&v).unwrap_or_else(|_| "{}".into())

@@ -1,11 +1,11 @@
-"""Cliente D-Bus del daemon nativo (Rust) para la UI GTK4.
+"""D-Bus client for the native daemon (Rust), used by the GTK4 UI.
 
-Fase 3: sustituye al `SyncManager` Python como fuente del motor. La UI consume
-este `DaemonClient` (misma interfaz de señales GObject que `SyncManager`, para no
-tocar `window.py`/`status.py`), y por debajo habla con `gdrive-daemon` vía D-Bus.
+Phase 3: replaces the Python `SyncManager` as the engine source. The UI uses
+this `DaemonClient` (same GObject signal interface as `SyncManager`, to avoid
+touching `window.py`/`status.py`) and talks to `gdrive-daemon` over D-Bus.
 
-Si el daemon no está disponible, `available` es `False` y los métodos son no-op
-seguros; la UI puede optar por un fallback.
+If the daemon is not available, `available` is `False` and the methods are safe
+no-ops; the UI may then opt for a fallback.
 """
 
 import gi
@@ -20,9 +20,9 @@ DAEMON_BUS = Gio.BusType.SESSION
 
 
 class DaemonClient(GObject.Object):
-    """Adaptador GObject → D-Bus del daemon nativo.
+    """GObject → D-Bus adapter for the native daemon.
 
-    Emite las mismas señales que SyncManager:
+    Emits the same signals as SyncManager:
       - status-changed(str)
       - finished(bool, str)
       - progress(str, int, int)
@@ -54,10 +54,10 @@ class DaemonClient(GObject.Object):
             "error": "status.error",
         }
         GObject.type_register(DaemonClient)
-        # Conectar al bus y verificar disponibilidad del daemon.
+        # Connect to the bus and check the daemon's availability.
         Gio.bus_get(DAEMON_BUS, None, self._on_bus_ready, None)
 
-    # ── Propiedades ──────────────────────────────────────────────────────────
+    # ── Properties ───────────────────────────────────────────────────────────
     @property
     def status(self):
         return self._status
@@ -71,7 +71,7 @@ class DaemonClient(GObject.Object):
     def available(self):
         return self._available
 
-    # ── Conexión D-Bus ───────────────────────────────────────────────────────
+    # ── D-Bus connection ─────────────────────────────────────────────────────
     def _on_bus_ready(self, obj, result, _userdata):
         try:
             self._conn = Gio.bus_get_finish(result)
@@ -83,7 +83,7 @@ class DaemonClient(GObject.Object):
         if self._checking:
             return
         self._checking = True
-        # Consultar el nombre: si hay owner, el daemon está vivo.
+        # Query the name: if it has an owner, the daemon is alive.
         self._conn.call(
             "org.freedesktop.DBus",
             "/org/freedesktop/DBus",
@@ -110,7 +110,7 @@ class DaemonClient(GObject.Object):
     def _set_available(self, available):
         if available == self._available:
             if available:
-                self._subscribe()  # asegurar suscripción
+                self._subscribe()  # ensure subscription
             return
         self._available = available
         if available:
@@ -121,8 +121,8 @@ class DaemonClient(GObject.Object):
         self.emit("available-changed", available)
 
     def _subscribe(self):
-        """Suscribe a las señales del daemon: StatusChanged, Progress,
-        SpeedChanged y SyncFinished."""
+        """Subscribes to the daemon signals: StatusChanged, Progress,
+        SpeedChanged and SyncFinished."""
         if self._conn is None:
             return
         subs = {
@@ -184,22 +184,22 @@ class DaemonClient(GObject.Object):
         if status in ("idle", "paused", "error"):
             self.emit("speed-changed", "—")
 
-    # ── Métodos de control (espejo de SyncManager) ──────────────────────────
+    # ── Control methods (mirror of SyncManager) ─────────────────────────────
     def start_periodic(self):
-        """Sincroniza `sync_interval`/`paused` con el daemon. La programación
-        periódica la ejecuta el daemon nativo; aquí solo empujamos la config."""
+        """Syncs `sync_interval`/`paused` with the daemon. The native daemon
+        runs the periodic scheduling; here we only push the config."""
         self._push_interval()
 
     def stop_periodic(self):
-        """No-op: el daemon re-evalúa `sync_interval` continuamente."""
+        """No-op: the daemon re-evaluates `sync_interval` continuously."""
         pass
 
     def _push_interval(self):
         if not self._conn or not self._available:
             return
-        # Empujar las claves que gobiernan el motor al daemon nativo. El daemon
-        # re-evalúa config continuamente (scheduler/watcher), pero adelantamos
-        # los cambios para que surtan efecto sin esperar al siguiente tick.
+        # Push the keys that govern the engine to the native daemon. The daemon
+        # re-evaluates the config continuously (scheduler/watcher), but we move
+        # the changes forward so they take effect without waiting for a tick.
         changes = GLib.Variant(
             "a{ss}",
             {
@@ -293,7 +293,7 @@ class DaemonClient(GObject.Object):
         except Exception:
             pass
 
-    # ── Limpieza ─────────────────────────────────────────────────────────────
+    # ── Cleanup ──────────────────────────────────────────────────────────────
     def close(self):
         if self._conn:
             for sid in self._subs.values():

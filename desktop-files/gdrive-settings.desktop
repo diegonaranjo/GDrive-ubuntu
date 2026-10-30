@@ -2,9 +2,11 @@
 Version=1.0
 Type=Application
 Name=Google Drive
-Comment=Cliente de escritorio para Google Drive
-# Reemplazar RUTA_DEL_PROYECTO por la ruta absoluta donde clonaste el repo.
-# setup.sh genera este archivo automáticamente con la ruta correcta.
+Comment=Desktop client for Google Drive
+Comment[es]=Cliente de escritorio para Google Drive
+# RUTA_DEL_PROYECTO must be replaced with the absolute path of the clone at
+# install time. Nothing substitutes it today: setup.sh writes its own launcher
+# from a heredoc and build-deb.sh copies this file verbatim into the .deb.
 Exec=bash RUTA_DEL_PROYECTO/launch.sh
 Icon=google-drive
 Terminal=false

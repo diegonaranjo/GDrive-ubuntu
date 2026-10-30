@@ -1,4 +1,4 @@
-"""Funciones utilitarias: formato, logging, rclone, notificaciones, autostart."""
+"""Utility functions: formatting, logging, rclone, notifications, autostart."""
 
 import json
 import os
@@ -28,13 +28,13 @@ def format_size(b):
 
 
 def log_write(config, level, component, message, also_activity=False):
-    """Escribe en debug.log. Si also_activity=True, también en activity.log."""
+    """Writes to debug.log. If also_activity=True, also to activity.log."""
     if not config.get("logging_enabled", True):
         return
     min_level = LOG_LEVELS.get(config.get("log_level", "info"), 1)
     if LOG_LEVELS.get(level, 1) > min_level:
-        # Aunque el debug.log filtre por nivel, activity.log siempre registra
-        # eventos significativos (also_activity) sin importar log_level.
+        # Even though debug.log filters by level, activity.log always records
+        # significant events (also_activity) regardless of log_level.
         if not also_activity:
             return
     now = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -62,7 +62,7 @@ def log_write(config, level, component, message, also_activity=False):
 
 
 def write_activity(component, message):
-    """Anexa un evento al activity.log (formato plano con separador |)."""
+    """Appends an event to activity.log (flat format with the | separator)."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     now = time.strftime("%d/%m/%Y %H:%M:%S")
     with open(LOG_DIR / "activity.log", "a") as f:
@@ -83,7 +83,7 @@ def rclone_about():
 
 
 def rclone_remote_exists(remote=None):
-    """True si el remote de rclone (default RCLONE_REMOTE) está configurado."""
+    """True if the rclone remote (default RCLONE_REMOTE) is configured."""
     remote = remote or RCLONE_REMOTE
     name = remote.rstrip(":")
     try:
@@ -100,13 +100,13 @@ def rclone_remote_exists(remote=None):
 
 
 def rclone_user_email():
-    """Obtiene el email de la cuenta conectada al remote, o None.
+    """Returns the email of the account connected to the remote, or None.
 
-    Google Drive no expone el email como campo del config, así que lo
-    inferimos consultando el propio drive vía `rclone backend`.
+    Google Drive does not expose the email as a config field, so we infer it
+    by querying the drive itself via `rclone backend`.
     """
     name = RCLONE_REMOTE.rstrip(":")
-    # 1) Intentar leer el campo 'user'/'account' del config (otros backends).
+    # 1) Try reading the config 'user'/'account' field (other backends).
     try:
         r = subprocess.run(
             ["rclone", "config", "show", RCLONE_REMOTE],
@@ -122,7 +122,7 @@ def rclone_user_email():
                             return val
     except Exception:
         pass
-    # 2) Para Google Drive: obtenerlo desde la API del backend.
+    # 2) For Google Drive: get it from the backend API.
     try:
         r = subprocess.run(
             ["rclone", "backend", "user", RCLONE_REMOTE],
@@ -138,7 +138,7 @@ def rclone_user_email():
 
 
 def rclone_is_authorized():
-    """True si el remote existe y tiene token válido (no solo configurado)."""
+    """True if the remote exists and has a valid token (not just configured)."""
     if not rclone_remote_exists():
         log_write({}, "debug", "Auth", "Remote does not exist")
         return False
@@ -161,25 +161,25 @@ def rclone_is_authorized():
 
 
 def _graphical_env():
-    """Devuelve un dict con variables de entorno gráfico para subprocess.
+    """Returns a dict with graphical environment variables for subprocess.
 
-    Cuando la app/tray corre como servicio systemd de usuario, el entorno
-    del proceso suele tener DISPLAY pero faltar WAYLAND_DISPLAY/BROWSER, lo
-    que impide que rclone (o xdg-open) abran el navegador para OAuth.
-    Aquí forzamos las variables conocidas de la sesión gráfica activa.
+    When the app/tray runs as a user systemd service, the process environment
+    usually has DISPLAY but is missing WAYLAND_DISPLAY/BROWSER, which stops
+    rclone (or xdg-open) from opening the browser for OAuth. Here we force
+    the known variables of the active graphical session.
     """
     env = dict(os.environ)
-    # Garantizar XDG_RUNTIME_DIR y DISPLAY (fallback a valores estándar).
+    # Ensure XDG_RUNTIME_DIR and DISPLAY (fallback to standard values).
     env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
     env.setdefault("DISPLAY", ":0")
-    # Wayland: el socket por defecto vive en XDG_RUNTIME_DIR/wayland-0.
+    # Wayland: the default socket lives in XDG_RUNTIME_DIR/wayland-0.
     if "WAYLAND_DISPLAY" not in env:
         env["WAYLAND_DISPLAY"] = "wayland-0"
-    # Asegurar rutas de datos GNOME/Ubuntu para que xdg-open encuentre el .desktop
-    # del navegador por defecto.
+    # Ensure the GNOME/Ubuntu data paths so xdg-open finds the .desktop
+    # of the default browser.
     if "XDG_DATA_DIRS" not in env:
         env["XDG_DATA_DIRS"] = "/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/"
-    # PATH completo (systemd a veces recorta PATH y xdg-open no halla browsers).
+    # Full PATH (systemd sometimes trims PATH and xdg-open finds no browser).
     env["PATH"] = (
         "/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:"
         + env.get("PATH", ""))
@@ -187,12 +187,12 @@ def _graphical_env():
 
 
 def _open_browser_for_oauth(stream_reader, stop_event):
-    """Hilo que lee la salida de rclone y abre el navegador cuando ve la URL
-    de callback local (http://127.0.0.1:53682/auth?...).
+    """Thread that reads rclone's output and opens the browser when it sees the
+    local callback URL (http://127.0.0.1:53682/auth?...).
 
-    rclone imprime la URL en stderr; algunos entornos no logran abrirla solos
-    (servicios systemd sin BROWSER/WAYLAND_DISPLAY). Este hilo la abre
-    explícitamente con xdg-open usando el entorno gráfico.
+    rclone prints the URL on stderr; some environments fail to open it on
+    their own (systemd services without BROWSER/WAYLAND_DISPLAY). This thread
+    opens it explicitly with xdg-open using the graphical environment.
     """
     import re
     url_re = re.compile(r"http://127\.0\.0\.1:53682/auth\?state=\S+")
@@ -202,7 +202,7 @@ def _open_browser_for_oauth(stream_reader, stop_event):
         if not ch:
             break
         buf += ch
-        # Procesar líneas completas.
+        # Process complete lines.
         if ch == "\n":
             line = buf.rstrip()
             buf = ""
@@ -216,29 +216,29 @@ def _open_browser_for_oauth(stream_reader, stop_event):
                                      stderr=subprocess.DEVNULL)
                 except Exception:
                     pass
-                return  # Bastante con abrirla una vez.
+                return  # Opening it once is enough.
 
 
 def rclone_sign_in(on_line=None):
-    """Crea el remote 'gdrive' (si falta) y lanza OAuth en el navegador.
+    """Create the 'gdrive' remote (if absent) and launch OAuth in the browser.
 
-    Flujo robusto:
-      1. Si el remote no existe, lo crea con `rclone config create` (no
-         interactivo: solo define type=drive y scope=drive, sin OAuth).
-      2. Ejecuta `rclone config reconnect gdrive:` alimentando respuestas por
-         stdin: 'y' (usar browser local) y 'n' (no es Team Drive).
-      3. Un hilo aparte vigila la salida de rclone y abre explícitamente el
-         navegador con la URL de OAuth vía xdg-open usando el entorno gráfico
-         (fallback para servicios systemd sin WAYLAND_DISPLAY/BROWSER).
-      4. Verifica con rclone_is_authorized().
+    Robust flow:
+      1. If the remote does not exist, create it with `rclone config create`
+         (non-interactive: it only sets type=drive and scope=drive, no OAuth).
+      2. Run `rclone config reconnect gdrive:` feeding answers through stdin:
+         'y' (use the local browser) and 'n' (it is not a Team Drive).
+      3. A separate thread watches rclone's output and opens the OAuth URL
+         explicitly with xdg-open, in the graphical environment (fallback
+         for systemd services without WAYLAND_DISPLAY/BROWSER).
+      4. Verify with rclone_is_authorized().
 
-    `on_line(line)` opcional recibe cada línea para mostrar progreso en la UI.
-    Devuelve True si el remote quedó autorizado.
+    The optional `on_line(line)` receives each line to show UI progress.
+    Returns True if the remote ended up authorized.
     """
     import threading
     name = RCLONE_REMOTE.rstrip(":")
 
-    # 1) Crear la entrada del remote si no existe (sin OAuth).
+    # 1) Create the remote entry if it does not exist (no OAuth).
     if not rclone_remote_exists():
         try:
             subprocess.run(
@@ -249,7 +249,7 @@ def rclone_sign_in(on_line=None):
         except Exception:
             pass
 
-    # 2) reconnect + hilo que abre el navegador explícitamente.
+    # 2) reconnect + thread that opens the browser explicitly.
     try:
         proc = subprocess.Popen(
             ["rclone", "config", "reconnect", RCLONE_REMOTE],
@@ -286,7 +286,7 @@ def rclone_sign_in(on_line=None):
 
 
 def rclone_sign_out():
-    """Elimina el remote de rclone (config delete)."""
+    """Deletes the rclone remote (config delete)."""
     name = RCLONE_REMOTE.rstrip(":")
     try:
         subprocess.run(
@@ -318,9 +318,9 @@ def rclone_lsd(remote):
 
 
 def _project_root():
-    """Directorio raíz del proyecto (donde está launch.sh).
+    """Project root directory (where launch.sh lives).
 
-    helpers.py está en <root>/gdrive/, subimos un nivel.
+    helpers.py sits at <root>/gdrive/, so we go up one level.
     """
     return Path(__file__).resolve().parent.parent
 
@@ -342,9 +342,9 @@ def toggle_autostart(enable):
 
 
 def send_notification(app, title, body, priority=Gio.NotificationPriority.NORMAL):
-    """Envía una notificación de escritorio vía GApplication.
+    """Sends a desktop notification via GApplication.
 
-    `app` debe ser la instancia de GDriveApp. Si no está disponible, no-op.
+    `app` must be the GDriveApp instance. If it is unavailable, no-op.
     """
     try:
         notif = Gio.Notification.new(title)

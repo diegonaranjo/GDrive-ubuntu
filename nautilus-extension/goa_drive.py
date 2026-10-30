@@ -11,7 +11,7 @@ SYNC_DIR_DEFAULT = str(Path.home() / "GoogleDrive")
 
 
 def _sync_dir():
-    """Lee sync_dir de la configuración de la app, con fallback a ~/GoogleDrive."""
+    """Reads sync_dir from the app settings, with a fallback to ~/GoogleDrive."""
     try:
         if CONFIG_FILE.exists():
             cfg = json.loads(CONFIG_FILE.read_text())

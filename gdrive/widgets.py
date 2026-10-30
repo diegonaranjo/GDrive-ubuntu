@@ -1,4 +1,4 @@
-"""Widgets reutilizables GTK4/libadwaita."""
+"""Reusable GTK4/libadwaita widgets."""
 
 from .i18n import t
 
@@ -8,12 +8,12 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 
-# Dialogos abiertos a la espera de respuesta. `Adw.MessageDialog` no se registra
-# como ventana de la aplicacion, y el patron de uso (`dlg = ConfirmDialog(...)`,
-# `dlg.present()`) deja la unica referencia en una variable local del callback:
-# PyGObject destruia el dialogo mientras todavia estaba en pantalla. Medido con
-# una referencia debil: a los 2 s el objeto Python ya estaba muerto.
-# `destroy` se emite al responder, asi que la salida siempre se libera.
+# Dialogs open and waiting for a response. An `Adw.MessageDialog` is not
+# registered as an application window, and the usage pattern (`dlg =
+# ConfirmDialog(...)`, `dlg.present()`) leaves the only reference in a local
+# variable of the callback: PyGObject destroyed the dialog while it was still
+# on screen. Measured with a weak reference: after 2 s the Python object was
+# already dead. `destroy` fires on response, so the exit always frees it.
 _OPEN_DIALOGS = set()
 
 
@@ -36,9 +36,9 @@ class SidebarButton(Gtk.Button):
 
         self._badge = Gtk.Box(css_classes=["status-dot"])
         self._badge.set_size_request(8, 8)
-        # Sin valign el Box se estira a la altura de la fila (.sidebar-item
-        # pide min-height 36px) y el border-radius de 9999px lo dibuja como
-        # una pastilla vertical en lugar de un punto.
+        # Without valign the Box stretches to the row height (.sidebar-item
+        # asks for min-height 36px) and the 9999px border-radius draws it as a
+        # vertical pill instead of a dot.
         self._badge.set_valign(Gtk.Align.CENTER)
         self._badge.set_halign(Gtk.Align.END)
         self._badge.set_visible(False)
@@ -51,8 +51,8 @@ class SidebarButton(Gtk.Button):
         if color_hex is None:
             self._badge.set_visible(False)
             return
-        # Un solo provider por boton: crear uno por cambio de estado los
-        # acumula en el widget durante toda la sesion.
+        # One provider per button: creating one per state change accumulates
+        # them on the widget for the whole session.
         self._badge_css.load_from_data(
             f".status-dot {{ background: {color_hex}; }}".encode())
         self._badge.set_visible(True)

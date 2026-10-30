@@ -1,8 +1,8 @@
-//! Tests de integración del watcher (flujo real inotify → debounce → canal).
+//! Integration tests for the watcher (real inotify → debounce → channel flow).
 //!
-//! A diferencia de los tests unitarios de `src/watcher.rs` (que cubren el
-//! filtrado de eventos), aquí se valida el flujo completo: observar un directorio
-//! real, modificar un archivo y recibir la señal tras el debounce.
+//! Unlike the unit tests in `src/watcher.rs` (which cover event filtering), here
+//! the full flow is validated: watch a real directory, modify a file and receive
+//! the signal after the debounce.
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -14,28 +14,28 @@ use gdrive_core::watcher::DirWatcher;
 fn watcher_signals_after_file_change() {
     let dir = tempfile::TempDir::new().unwrap();
 
-    // `syncing=false`: no hay sync en curso, así que el watcher debe reaccionar.
+    // `syncing=false`: no sync is running, so the watcher must react.
     let syncing = Arc::new(AtomicBool::new(false));
     let watcher = DirWatcher::new(dir.path().to_path_buf(), syncing)
         .spawn()
         .unwrap();
 
-    // Dar tiempo a inotify para registrarse antes de tocar el archivo.
+    // Give inotify time to register before touching the file.
     std::thread::sleep(Duration::from_millis(300));
 
-    // Crear un archivo: evento relevante (Create).
+    // Create a file: relevant event (Create).
     std::fs::write(dir.path().join("nuevo.txt"), b"hola").unwrap();
 
-    // Esperar la señal (debounce de 5s + margen).
+    // Wait for the signal (5s debounce + margin).
     let received = watcher.recv_timeout(Duration::from_secs(8));
-    assert!(received.is_ok(), "no se recibió señal de cambio");
+    assert!(received.is_ok(), "no change signal was received");
 }
 
 #[test]
 fn watcher_ignores_events_while_syncing() {
     let dir = tempfile::TempDir::new().unwrap();
 
-    // `syncing=true`: los eventos del propio sync se descartan (anti-bucle).
+    // `syncing=true`: the sync's own events are dropped (anti-loop).
     let syncing = Arc::new(AtomicBool::new(true));
     let watcher = DirWatcher::new(dir.path().to_path_buf(), syncing)
         .spawn()
@@ -44,11 +44,11 @@ fn watcher_ignores_events_while_syncing() {
     std::thread::sleep(Duration::from_millis(300));
     std::fs::write(dir.path().join("nuevo.txt"), b"hola").unwrap();
 
-    // No debe señalizar mientras `syncing` esté activo.
+    // It must not signal while `syncing` is active.
     let received = watcher.recv_timeout(Duration::from_secs(3));
     assert!(
         matches!(received, Err(std::sync::mpsc::RecvTimeoutError::Timeout)),
-        "recibió señal inesperada durante un sync en curso"
+        "received an unexpected signal while a sync was running"
     );
 }
 

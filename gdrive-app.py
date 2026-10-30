@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """GDrive - Professional Desktop Client (entry-point).
 
-Fase 3: la UI GTK4 delega el motor en el daemon nativo (Rust) vía D-Bus. Este
-entry-point arranca la ventana y, si el daemon no está corriendo, lo lanza
-automáticamente para que la app funcione sin pasos manuales.
+Phase 3: the GTK4 UI delegates the engine to the native daemon (Rust) over
+D-Bus. This entry-point starts the window and, if the daemon is not running,
+launches it automatically so the app works without manual steps.
 """
 
 import os
@@ -26,7 +26,7 @@ from gdrive.window import DriveWindow
 
 
 def _daemon_binary() -> Path | None:
-    """Localiza el binario del daemon nativo (compilado en native/gdrive-core)."""
+    """Locates the native daemon binary (built in native/gdrive-core)."""
     candidates = [
         Path(os.environ.get("GDRIVE_DAEMON_BIN", "")) if os.environ.get("GDRIVE_DAEMON_BIN") else None,
         Path(__file__).resolve().parent / "native" / "gdrive-core" / "target" / "release" / "gdrive-daemon",
@@ -42,7 +42,7 @@ def _daemon_binary() -> Path | None:
 
 
 def _daemon_running() -> bool:
-    """Consulta si el nombre com.gdrive.Client tiene owner en el bus de sesión."""
+    """Checks if the name com.gdrive.Client has an owner on the session bus."""
     try:
         import subprocess
         r = subprocess.run(
@@ -51,12 +51,12 @@ def _daemon_running() -> bool:
         )
         return r.returncode == 0
     except Exception:
-        # Fallback: intentar gapplication
+        # Fallback: try gapplication
         return False
 
 
 def _ensure_daemon() -> bool:
-    """Lanza el daemon nativo si no está corriendo. Devuelve si quedó disponible."""
+    """Starts the native daemon if not running. Returns whether it is available."""
     if _daemon_running():
         return True
     binary = _daemon_binary()
@@ -71,11 +71,11 @@ def _ensure_daemon() -> bool:
 
 
 def _ui_already_running() -> bool:
-    """Comprueba si ya hay otra instancia de la UI registrada en D-Bus.
+    """Checks whether another UI instance is already registered on D-Bus.
 
-    El `application_id` de la UI (`com.gdrive.ClientUI`) es único en el bus de
-    sesión: si ya existe un propietario, este proceso es una segunda instancia
-    y no debe abrir una ventana duplicada.
+    The UI's `application_id` (`com.gdrive.ClientUI`) is unique on the session
+    bus: if an owner already exists, this process is a second instance and
+    must not open a duplicate window.
     """
     try:
         conn = Gio.bus_get_sync(Gio.BusType.SESSION, None)
@@ -96,7 +96,7 @@ def _ui_already_running() -> bool:
 
 
 def _activate_existing_instance() -> bool:
-    """Activa la ventana de la instancia ya en ejecución vía D-Bus."""
+    """Activates the window of the instance that is already running, over D-Bus."""
     for method in (
         ["gapplication", "activate", APP_ID],
         ["dbus-send", "--session", "--type=method_call",
@@ -127,18 +127,18 @@ class GDriveApp(Adw.Application):
     def do_startup(self):
         Adw.Application.do_startup(self)
         load_theme()
-        # Garantizar que el motor nativo esté vivo antes de abrir la ventana.
+        # Make sure the native engine is alive before opening the window.
         _ensure_daemon()
 
     def do_activate(self):
-        # El arranque automatico no debe abrir la ventana: la app queda en la
-        # bandeja y la ventana aparece cuando el usuario la pide (segundo
-        # `activate`, icono del launcher o "Configuracion" del menu).
+        # Automatic startup must not open the window: the app stays in the
+        # tray and the window appears when the user asks for it (second
+        # `activate`, launcher icon or "Settings" from the menu).
         if self._first_activate and self.config.get("start_hidden", False):
             self._first_activate = False
-            # Sin ventanas propias una `GApplication` se cierra apenas termina
-            # `activate` (es exactamente lo que mataba al aviso de instancia
-            # unica). El hold es lo que mantiene viva la sesion en bandeja.
+            # With no windows of its own a `GApplication` quits as soon as
+            # `activate` ends (that is exactly what killed the single-instance
+            # notice). The hold is what keeps the tray session alive.
             self.hold()
             self.daemon_client.refresh_status()
             return
@@ -147,7 +147,7 @@ class GDriveApp(Adw.Application):
         self.daemon_client.refresh_status()
 
     def show_window(self):
-        """Crea la ventana si no existe y la trae al frente."""
+        """Creates the window if it does not exist and brings it to the front."""
         if not self.win:
             self.win = DriveWindow(self, self.config, self.daemon_client)
         self.win.present()
@@ -172,7 +172,7 @@ class GDriveApp(Adw.Application):
             self.win._status_pg._do_pause()
 
     def _go_settings(self, *a):
-        # Pedir Ajustes es pedir la ventana: crearla si el arranque fue oculto.
+        # Asking for Settings asks for the window: create it on hidden startup.
         self.show_window()
         self.win._switch("settings")
 
@@ -182,8 +182,8 @@ class GDriveApp(Adw.Application):
 
 
 def main():
-    # Singleton: si ya hay una instancia de la UI viva, no abrir una segunda.
-    # Se activa la ventana existente y se muestra una alerta informativa.
+    # Singleton: if a UI instance is already alive, do not open a second one.
+    # The existing window is activated and an informational alert is shown.
     if _ui_already_running():
         _activate_existing_instance()
         _show_already_running_alert()
@@ -194,11 +194,11 @@ def main():
 
 
 def _show_already_running_alert():
-    """Muestra una alerta (diálogo GTK4 + notificación de escritorio).
+    """Shows an alert (GTK4 dialog + desktop notification).
 
-    Se ejecuta en un proceso efímero sin ventana padre. Usamos una notificación
-    de escritorio (vía `org.freedesktop.Notifications`, sin registrar ninguna
-    app conflictiva) y un diálogo modal autónomo.
+    Runs in a short-lived process with no parent window. We use a desktop
+    notification (via `org.freedesktop.Notifications`, without registering any
+    conflicting app) and a standalone modal dialog.
     """
     _send_desktop_notification(
         t("app.already_running_notif"), t("app.already_running_body")
@@ -210,7 +210,7 @@ def _show_already_running_alert():
 
 
 def _send_desktop_notification(title, body):
-    """Envía una notificación de escritorio vía `org.freedesktop.Notifications`."""
+    """Sends a desktop notification via `org.freedesktop.Notifications`."""
     try:
         conn = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         params = GLib.Variant(
@@ -218,10 +218,10 @@ def _send_desktop_notification(title, body):
             (
                 "gdrive",                # app_name
                 0,                       # replaces_id
-                "google-drive",          # icono
+                "google-drive",          # icon
                 title,
                 body,
-                [],                      # acciones
+                [],                      # actions
                 {},                      # hints
                 5000,                    # timeout ms
             ),
@@ -242,7 +242,7 @@ def _send_desktop_notification(title, body):
 
 
 def _dialog_loop():
-    """Muestra un `Adw.MessageDialog` autónomo y entra en su propio main loop."""
+    """Shows a standalone `Adw.MessageDialog` and enters its own main loop."""
     app = Adw.Application(application_id="com.gdrive.ClientUI.alert")
 
     def on_activate(application):
@@ -257,11 +257,11 @@ def _dialog_loop():
         dlg.set_default_response("ok")
         dlg.set_close_response("ok")
         dlg.connect("response", lambda d, r: application.quit())
-        # Sin esto la aplicación no tiene NINGUNA ventana registrada (un
-        # `Adw.MessageDialog` con `transient_for=None` no pertenece a la app),
-        # así que `run()` retorna apenas termina `activate`: el aviso aparecía
-        # y se cerraba solo, sin dejar leerlo. Medido: con `add_window` el
-        # diálogo sigue vivo a los 2 s; sin él, el proceso muere al instante.
+        # Without this the application has NOT ONE window registered (an
+        # `Adw.MessageDialog` with `transient_for=None` is not part of the app),
+        # so `run()` returns as soon as `activate` ends: the notice appeared and
+        # closed by itself, too fast to read. Measured: with `add_window` the
+        # dialog is still alive after 2 s; without it the process dies at once.
         application.add_window(dlg)
         dlg.present()
 

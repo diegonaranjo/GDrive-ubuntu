@@ -28,7 +28,7 @@ UI_ID = "com.gdrive.ClientUI"
 
 
 def _daemon_binary():
-    """Localiza el binario del daemon nativo (Rust)."""
+    """Locates the native daemon (Rust) binary."""
     candidates = [
         _PROJECT_ROOT / "native" / "gdrive-core" / "target" / "release" / "gdrive-daemon",
         _PROJECT_ROOT / "native" / "gdrive-core" / "target" / "debug" / "gdrive-daemon",
@@ -43,7 +43,7 @@ def _daemon_binary():
 
 
 def _ensure_daemon():
-    """Lanza el daemon nativo si no está corriendo. Devuelve True si quedó vivo."""
+    """Starts the native daemon if not running. Returns True if it stayed alive."""
     if _daemon_running():
         return True
     binary = _daemon_binary()
@@ -67,7 +67,7 @@ _anim_state = {
 
 
 def _daemon_running():
-    """True si el daemon nativo (dueño de com.gdrive.Client) está registrado."""
+    """True if the native daemon (owner of com.gdrive.Client) is registered."""
     try:
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         res = bus.call_sync(
@@ -86,7 +86,7 @@ def _daemon_running():
         return False
 
 
-# Alias de compatibilidad con el código previo.
+# Compatibility alias for the previous code.
 def _is_app_running():
     return _daemon_running()
 
@@ -131,11 +131,11 @@ def _icon_item(label, icon_name, callback):
 
 
 def _daemon_status():
-    """Consulta el estado real al daemon nativo vía D-Bus.
+    """Queries the real status from the native daemon over D-Bus.
 
-    Devuelve el valor de `status` (`idle` | `syncing` | `error` | …) o `None`
-    si el daemon no responde. Sustituye a la antigua detección por lock file,
-    que dependía de un prefijo bisync hardcodeado.
+    Returns the `status` value (`idle` | `syncing` | `error` | …) or `None`
+    if the daemon does not answer. Replaces the old lock-file detection,
+    which depended on a hardcoded bisync prefix.
     """
     try:
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
@@ -157,17 +157,17 @@ def _daemon_status():
 
 
 def _is_syncing():
-    """True si el daemon nativo indica que un sync está en curso."""
+    """True if the native daemon reports a sync under way."""
     return _daemon_status() == "syncing"
 
 
 def open_settings(*_):
     log_msg("Opening settings")
-    # Pedirle a la instancia YA registrada que cambie a la página de Ajustes.
-    # Antes se lanzaba un segundo `gdrive-app.py`: ese proceso choca contra el
-    # control de instancia única, así que solo activaba la ventana existente,
-    # mostraba el aviso "ya se está ejecutando" y se cerraba — la Configuración
-    # nunca abría y el usuario veía una ventana aparecer y desaparecer.
+    # Ask the instance ALREADY registered to switch to the Settings page.
+    # It used to launch a second `gdrive-app.py`: that process hits the
+    # single-instance control, so it only activated the existing window,
+    # showed the "already running" notice and quit — Settings never opened
+    # and the user saw a window appear and disappear.
     for cmd in (["gapplication", "action", UI_ID, "go-settings"],
                 ["gapplication", "activate", UI_ID]):
         try:
@@ -175,7 +175,7 @@ def open_settings(*_):
                 return
         except Exception:
             continue
-    # Sin instancia de UI viva: arrancarla (ella sola mostrará la ventana).
+    # No live UI instance: start one (it will show the window itself).
     subprocess.Popen([sys.executable, APP_SCRIPT])
 
 
@@ -192,7 +192,7 @@ def sync_now(*_):
     _anim_state["tick_count"] = 12
 
     try:
-        # Llamada directa al daemon nativo (más robusta que gapplication action).
+        # Direct call to the native daemon (more robust than gapplication action).
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         bus.call_sync(
             DAEMON_ID,
@@ -234,7 +234,7 @@ def pause_sync(indicator, *_):
             json.dump(config, f, indent=2)
     except Exception as e:
         log_msg(f"Error toggling pause via daemon: {e}")
-        # Fallback: togglear el archivo directamente (si el daemon no está).
+        # Fallback: toggle the file directly (if the daemon is not there).
         config["paused"] = paused
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         with open(CONFIG_FILE, "w") as f:

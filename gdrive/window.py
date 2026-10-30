@@ -1,4 +1,4 @@
-"""Ventana principal."""
+"""Main window."""
 
 from .config import save_config
 from .i18n import t

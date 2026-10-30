@@ -1,10 +1,11 @@
 # GDrive - Makefile
-# Equivalente al instalador .pkg de macOS
+# Build / install / verify / package shortcuts for the Ubuntu client.
 
 .PHONY: all build install verify uninstall clean help
 
 PACKAGE_NAME = google-drive-ubuntu
-VERSION = 1.0.0
+# DEBIAN/control is the single source of truth for the version.
+VERSION = $(shell grep '^Version:' DEBIAN/control | cut -d' ' -f2)
 
 help: ## Show this help
 	@echo "GDrive v$(VERSION)"

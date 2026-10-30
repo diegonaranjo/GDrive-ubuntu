@@ -4,6 +4,40 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Developer-facing text is now English throughout.** Every code comment,
+  docstring, module doc, packaging file and installer message was translated
+  (~660 lines across 40 files). The application's own strings did not change:
+  the Spanish and English catalogs are byte-identical, so a Spanish locale still
+  sees exactly the same UI as before.
+- `.desktop` entries now ship an English `Comment=` plus a `Comment[es]`
+  variant, so the desktop shell localizes them instead of always showing
+  Spanish.
+
+### Fixed
+
+- The About page reported **1.0.0** while the daemon, the `.deb` and the release
+  were 1.1.0. `APP_VERSION` is 1.1.0 now, and `Makefile` and `build-deb.sh` read
+  the version from `DEBIAN/control` instead of hardcoding one — `build-deb.sh`
+  was about to name the artifact `…-1.0.1.deb` against a `1.1.0` control file.
+- `desktop-files/google-drive.desktop`, and the copy `install.sh` generates,
+  left an unquoted `?` in `Exec=`; `desktop-file-validate` rejects that, so the
+  URL is now quoted.
+- `DEBIAN/control` described the package as a Google Drive client *for macOS*.
+  It now describes the Ubuntu/Linux client built on rclone.
+- The core docs and module headers still referenced `gdrive/sync.py`, which was
+  removed in 1.1.0; they now say it was removed.
+
+### Known defect
+
+- `desktop-files/gdrive-settings.desktop` ships `Exec=bash RUTA_DEL_PROYECTO/launch.sh`
+  and nothing substitutes that placeholder, so that launcher cannot work from
+  the `.deb`. The file now documents this instead of claiming `setup.sh` fills
+  it in; repairing it means deciding where the package installs the app.
+
 ## [1.1.0] - 2026-10-30
 
 ### Fixed

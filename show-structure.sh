@@ -27,7 +27,7 @@ echo
 
 echo "Option 2: Build .deb package"
 echo "  make package"
-echo "  sudo dpkg -i build/google-drive-ubuntu-1.0.0.deb"
+echo "  sudo dpkg -i build/google-drive-ubuntu-$(grep '^Version:' DEBIAN/control | cut -d' ' -f2).deb"
 echo
 
 echo "Option 3: Docker test"

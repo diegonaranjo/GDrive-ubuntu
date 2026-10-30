@@ -1,11 +1,11 @@
-//! Entry-point del daemon D-Bus de GDrive.
+//! Entry-point of GDrive's D-Bus daemon.
 //!
-//! Uso:
-//!   gdrive-daemon            → ejecuta en primer plano (para debug)
-//!   gdrive-daemon --once     → ejecuta un sync manual y sale
+//! Usage:
+//!   gdrive-daemon            → runs in the foreground (for debugging)
+//!   gdrive-daemon --once     → runs one manual sync and exits
 //!
-//! El daemon registra el nombre `com.gdrive.Client` (compatible con el tray
-//! existente que hace `gapplication action com.gdrive.Client <name>`).
+//! The daemon registers the name `com.gdrive.Client` (compatible with the
+//! existing tray that runs `gapplication action com.gdrive.Client <name>`).
 
 use std::time::Duration;
 
@@ -62,8 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         false,
     );
 
-    // Si no se consigue el nombre es que otro daemon ya sirve el servicio: este
-    // proceso debe salir en lugar de quedar encolado con su programador activo.
+    // If the name can't be acquired, another daemon already serves the service: this
+    // process must exit instead of being queued with its scheduler active.
     let _conn = match build_server(state.clone()).await {
         Ok(conn) => conn,
         Err(e) => {
@@ -81,13 +81,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // Programador de sync periódica (no-op si sync_interval == "manual").
+    // Periodic sync scheduler (no-op if sync_interval == "manual").
     spawn_periodic_scheduler(state.clone());
 
-    // Detección de cambios en tiempo real (no-op si watch_changes == false).
+    // Real-time change detection (no-op if watch_changes == false).
     spawn_change_watcher(state.clone());
 
-    // Bucle principal: esperar SIGINT/SIGTERM o la orden de quit vía D-Bus.
+    // Main loop: wait for SIGINT/SIGTERM or the quit command via D-Bus.
     loop {
         if state
             .quit_requested

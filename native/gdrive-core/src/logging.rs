@@ -1,6 +1,6 @@
-//! Logging con rotación + activity log. Reimplementa `log_write`/`write_activity`
-//! de `gdrive/helpers.py` con una sola implementación canónica (el Python la
-//! tenía triplicada y divergente).
+//! Logging with rotation + activity log. Reimplements `log_write` and
+//! `write_activity` from `gdrive/helpers.py` as a single canonical
+//! implementation (the Python had it triplicated and divergent).
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -10,24 +10,24 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::{config_home, Config};
 
-/// Nivel de severidad de un mensaje de log, ordenado de menor a mayor detalle.
+/// Severity level of a log message, ordered from least to most detail.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
-    /// Error (el más prioritario).
+    /// Error (the highest priority).
     Error = 0,
-    /// Información de funcionamiento normal.
+    /// Information about normal operation.
     Info = 1,
-    /// Detalle de depuración.
+    /// Debugging detail.
     Debug = 2,
-    /// Trazado exhaustivo.
+    /// Exhaustive trace.
     Trace = 3,
 }
 
 impl FromStr for Level {
     type Err = std::convert::Infallible;
 
-    /// Convierte una cadena (`"error"`, `"debug"`, `"trace"`) en un [`Level`].
-    /// Cualquier valor no reconocido se interpreta como [`Level::Info`].
+    /// Converts a string (`"error"`, `"debug"`, `"trace"`) into a [`Level`].
+    /// Any unrecognized value is interpreted as [`Level::Info`].
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "error" => Level::Error,
@@ -39,15 +39,15 @@ impl FromStr for Level {
 }
 
 impl Level {
-    /// Parsea el nivel desde una cadena con fallback `Info` (conveniencia sobre
+    /// Parses the level from a string with an `Info` fallback (convenience over
     /// [`FromStr::from_str`]).
     pub fn parse(s: &str) -> Level {
         s.parse().unwrap_or(Level::Info)
     }
 }
 
-/// Escribe una línea en `debug.log` y, opcionalmente, en `activity.log`.
-/// Filtra por nivel según `config.log_level`.
+/// Writes a line to `debug.log` and, optionally, to `activity.log`.
+/// Filters by level according to `config.log_level`.
 pub fn log_write(cfg: &Config, level: Level, component: &str, message: &str, also_activity: bool) {
     if !cfg.logging_enabled {
         return;
@@ -79,7 +79,7 @@ pub fn log_write(cfg: &Config, level: Level, component: &str, message: &str, als
     }
 }
 
-/// Anexa un evento al `activity.log` con formato `dd/MM/yyyy HH:mm:ss | comp | msg`.
+/// Appends an event to `activity.log` in `dd/MM/yyyy HH:mm:ss | comp | msg` form.
 pub fn write_activity(component: &str, message: &str) {
     let dir = log_dir();
     fs::create_dir_all(&dir).ok();
@@ -87,7 +87,7 @@ pub fn write_activity(component: &str, message: &str) {
     append(&dir.join("activity.log"), &line);
 }
 
-/// Rota `debug.log` → `debug.1.log` → … cuando supera `log_max_size_mb`.
+/// Rotates `debug.log` → `debug.1.log` → … once it exceeds `log_max_size_mb`.
 fn maybe_rotate(cfg: &Config, dir: &Path) {
     let logf = dir.join("debug.log");
     let max_bytes = cfg.log_max_size_mb * 1024 * 1024;
@@ -98,7 +98,7 @@ fn maybe_rotate(cfg: &Config, dir: &Path) {
         return;
     }
     let max_files = cfg.log_max_files.max(1) as usize;
-    // Desplazar debug.N.log → debug.N+1.log (eliminando el más viejo).
+    // Shift debug.N.log → debug.N+1.log (dropping the oldest one).
     for i in (0..max_files).rev() {
         let src = dir.join(if i == 0 {
             "debug.log".to_string()
@@ -128,7 +128,7 @@ fn log_dir() -> PathBuf {
 }
 
 fn timestamp_log() -> String {
-    // `%Y-%m-%d %H:%M:%S` sin dependencia de chrono.
+    // `%Y-%m-%d %H:%M:%S` without a chrono dependency.
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
@@ -136,7 +136,7 @@ fn timestamp_log() -> String {
     let rem = secs % 86_400;
     let (h, mi, s) = (rem / 3600, (rem % 3600) / 60, rem % 60);
 
-    // Conversión civil de días desde epoch (algoritmo de Howard Hinnant).
+    // Civil-date conversion of days since epoch (Howard Hinnant's algorithm).
     let z = days as i64 + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z.rem_euclid(146_097);
@@ -153,7 +153,7 @@ fn timestamp_log() -> String {
 
 fn timestamp_activity() -> String {
     let t = timestamp_log();
-    // Convertir "yyyy-mm-dd HH:MM:SS" → "dd/mm/yyyy HH:MM:SS".
+    // Convert "yyyy-mm-dd HH:MM:SS" → "dd/mm/yyyy HH:MM:SS".
     let (date, time) = t.split_once(' ').unwrap_or(("", ""));
     let mut p = date.split('-');
     let (y, m, d) = (
@@ -173,8 +173,8 @@ fn level_name(l: Level) -> &'static str {
     }
 }
 
-/// Formatea un tamaño en bytes → "1.5 GB" (divisor 1024, etiquetas SI como el
-/// original; se mantiene la convención histórica pese a ser formalmente binaria).
+/// Formats a size in bytes → "1.5 GB" (divisor 1024, SI labels like the
+/// original; the historical convention is kept despite being formally binary).
 pub fn format_size(b: i64) -> String {
     if b <= 0 {
         return "0 B".to_string();

@@ -1,8 +1,8 @@
-# rustfmt: configuración de formato del proyecto.
+# rustfmt: project formatting configuration.
 #
-# Nota: `imports_granularity` y `group_imports` (agrupación automática std →
-# externos → crate) son opciones SOLO de nightly. En estable generan un warning
-# y no se aplican, lo que rompería `cargo fmt --check` en el CI. Por eso se
-# omiten aquí; el orden de imports se mantiene manualmente siguiendo
-# rust-best-practices, capítulo 1.7.
+# Note: `imports_granularity` and `group_imports` (automatic std → external →
+# crate grouping) are NIGHTLY-ONLY options. On stable they emit a warning and
+# are not applied, which would break `cargo fmt --check` in CI. That is why they
+# are omitted here; import order is maintained manually following
+# rust-best-practices, chapter 1.7.
 edition = "2021"

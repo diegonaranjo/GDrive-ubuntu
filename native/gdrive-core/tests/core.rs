@@ -1,4 +1,4 @@
-//! Tests unitarios del core.
+//! Unit tests for the core.
 
 #![cfg(test)]
 
@@ -9,8 +9,8 @@ use gdrive_core::logging::format_size;
 use gdrive_core::rclone::{parse_speed, parse_stats};
 use gdrive_core::sync::{interval_seconds, SyncEngine};
 
-/// Serializa los tests que mutan `GDRIVE_CONFIG_DIR` (variable de entorno global
-/// compartida entre tests en paralelo).
+/// Serializes the tests that mutate `GDRIVE_CONFIG_DIR` (a global environment
+/// variable shared between tests running in parallel).
 static CONFIG_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
@@ -22,8 +22,8 @@ fn test_config_defaults() {
     assert!(c.logging_enabled);
     assert!(!c.paused);
     assert_eq!(c.log_max_files, 5);
-    // Basura de trees de código: se omite por defecto (patrones validados con
-    // `rclone lsf`: sin el `**/` delantero los anidados no se excluyen).
+    // Junk from code trees: skipped by default (patterns validated with
+    // `rclone lsf`: without the leading `**/` nested ones are not excluded).
     assert!(c
         .excluded_patterns
         .contains(&"**/node_modules/**".to_string()));
@@ -35,16 +35,16 @@ fn test_config_defaults() {
 #[test]
 fn test_config_partial_json_merges_defaults() {
     let _g = CONFIG_LOCK.lock().unwrap();
-    // Un JSON con un solo campo debe completarse con los defaults restantes.
+    // JSON with a single field must be filled in from the remaining defaults.
     let dir = tempfile::TempDir::new().unwrap();
     let cfg_path = dir.path().join("settings.json");
     std::fs::write(&cfg_path, r#"{"num_threads": 12}"#).unwrap();
 
-    // Redirigir config_home() vía GDRIVE_CONFIG_DIR.
+    // Redirect config_home() via GDRIVE_CONFIG_DIR.
     std::env::set_var("GDRIVE_CONFIG_DIR", dir.path());
     let c = load_config().unwrap();
     assert_eq!(c.num_threads, 12);
-    assert_eq!(c.sync_interval, "manual"); // default preservado
+    assert_eq!(c.sync_interval, "manual"); // default preserved
     assert_eq!(c.language, "es");
     std::env::remove_var("GDRIVE_CONFIG_DIR");
 }
@@ -75,25 +75,25 @@ fn test_format_size() {
     assert_eq!(format_size(2048), "2.0 KB");
     assert_eq!(format_size(3 * 1024 * 1024), "3.0 MB");
     assert_eq!(format_size(5 * 1024 * 1024 * 1024), "5.0 GB");
-    // Negativo se trata como 0 (como el Python).
+    // Negative values are treated as 0 (like the Python version).
     assert_eq!(format_size(-10), "0 B");
 }
 
 #[test]
 fn test_parse_stats_transferred() {
-    // Formato largo de rclone.
+    // Long rclone format.
     let l = "2026/07/06 12:00:01 INFO : Transferred: 123 / 456, 25%";
     assert_eq!(parse_stats(l), Some((123, 456)));
-    // Formato compacto con asterisco.
+    // Compact format with an asterisk.
     let l2 = "2026/07/06 12:00:01 INFO : * 50 / 200, 25%";
     assert_eq!(parse_stats(l2), Some((50, 200)));
-    // Sin stats.
+    // No stats.
     let l3 = "some unrelated line";
     assert_eq!(parse_stats(l3), None);
 }
 
-/// Formato que rclone v1.74 emite realmente con `--stats-one-line -v`: fecha con
-/// guiones, valores decimales y **unidades distintas a cada lado** del `/`.
+/// Format rclone v1.74 actually emits with `--stats-one-line -v`: dashed date,
+/// decimal values and **different units on each side** of the `/`.
 #[test]
 fn test_parse_stats_one_line_normalizes_mixed_units_to_bytes() {
     let l = "2026-09-30 22:05:21 INFO  :   512 MiB / 2 GiB, 25%, 12.3 MiB/s, ETA 10s";
@@ -111,13 +111,13 @@ fn test_parse_stats_one_line_accepts_decimals() {
 
 #[test]
 fn test_parse_stats_one_line_zero_transfer() {
-    // Línea real de un run sin nada que mover (nivel NOTICE, no INFO).
+    // Real line from a run with nothing to move (NOTICE level, not INFO).
     let l = "2026-09-30 18:33:45 NOTICE:           0 B / 0 B, -, 0 B/s, ETA -";
     assert_eq!(parse_stats(l), Some((0, 0)));
 }
 
-/// Con `-v` rclone emite muchísimas líneas por archivo: ninguna debe leerse como
-/// stats (el árbol del usuario tiene miles por los enlaces de node_modules).
+/// With `-v` rclone emits a huge number of lines per file: none may be read as
+/// stats (the user's tree has thousands because of node_modules symlinks).
 #[test]
 fn test_parse_stats_ignores_per_file_and_symlink_lines() {
     let copy = "2026-09-30 22:05:21 INFO  : big3.bin: Copied (new)";
@@ -132,8 +132,8 @@ fn test_parse_speed_from_real_one_line() {
     assert_eq!(parse_speed(l).as_deref(), Some("12.3 MiB/s"));
 }
 
-/// La entrada es salida externa: un `/` en posición 0 no debe desbordar índices,
-/// debe devolver `None`.
+/// Input is external output: a `/` at position 0 must not overflow indices,
+/// it must return `None`.
 #[test]
 fn test_parse_stats_does_not_panic_on_malformed_lines() {
     assert_eq!(parse_stats("/ 512 MiB, ETA -"), None);
@@ -141,24 +141,24 @@ fn test_parse_stats_does_not_panic_on_malformed_lines() {
     assert_eq!(parse_stats("INFO : 512 MiB /"), None);
 }
 
-/// Sin verbosity rclone no emite salida: el progreso y el watchdog de inactividad
-/// se quedan ciegos, así que `-v` es parte del contrato del motor.
+/// Without verbosity rclone emits no output: progress and the inactivity
+/// watchdog stay blind, so `-v` is part of the engine's contract.
 #[test]
 fn test_build_cmd_enables_verbose_so_stats_are_emitted() {
     let (cmd, _) = SyncEngine::new(Config::default()).build_cmd();
     assert!(cmd.iter().any(|a| a == "-v"), "{cmd:?}");
 }
 
-/// `--fast-list` cambia el listado del remoto de una llamada por directorio a una
-/// pasada recursiva: medido en Drive, 18,74 s -> 1,12 s en un subárbol.
+/// `--fast-list` changes remote listing from one call per directory to a
+/// recursive pass: measured on Drive, 18.74 s -> 1.12 s on a sub-tree.
 #[test]
 fn test_build_cmd_uses_fast_list_to_cut_api_calls() {
     let (cmd, _) = SyncEngine::new(Config::default()).build_cmd();
     assert!(cmd.iter().any(|a| a == "--fast-list"), "{cmd:?}");
 }
 
-/// `conflict_action` gobernaba `--conflict-resolve` solo de nombre: el valor
-/// histórico ("rename") no existe en bisync. Ahora un valor válido se propaga.
+/// `conflict_action` governed `--conflict-resolve` in name only: the historical
+/// value ("rename") does not exist in bisync. Now a valid value is propagated.
 #[test]
 fn test_conflict_action_maps_to_conflict_resolve() {
     for (action, esperado) in [
@@ -182,8 +182,8 @@ fn test_conflict_action_maps_to_conflict_resolve() {
     }
 }
 
-/// Valores desconocidos o vacíos (p. ej. el `"rename"` que quedó en archivos de
-/// configuración viejos) no pueden desactivar la resolución de conflictos.
+/// Unknown or empty values (e.g. the `"rename"` left behind in old config
+/// files) must not disable conflict resolution.
 #[test]
 fn test_conflict_action_unknown_falls_back_to_newer() {
     for action in ["rename", "", "borrar"] {
@@ -199,9 +199,9 @@ fn test_conflict_action_unknown_falls_back_to_newer() {
     }
 }
 
-/// rclone solo aplica el **último** `--bwlimit` (medido) y no entiende `d:`/`u:`:
-/// emitir un flag por cada ajuste hacía que poner límite de descarga rompiera
-/// cada sincronización. Debe salir exactamente uno, con el valor más estricto.
+/// rclone only applies the **last** `--bwlimit` (measured) and does not parse
+/// `d:`/`u:`: emitting one flag per setting made a download limit break
+/// every sync. Exactly one must be emitted, with the strictest value.
 #[test]
 fn test_bwlimit_emits_a_single_strictest_flag() {
     let c = Config {
@@ -227,11 +227,11 @@ fn test_bwlimit_absent_when_nothing_configured() {
     let (cmd, _) = SyncEngine::new(Config::default()).build_cmd();
     assert!(
         !cmd.iter().any(|a| a == "--bwlimit"),
-        "sin límites no va --bwlimit: {cmd:?}"
+        "no limit means no --bwlimit flag: {cmd:?}"
     );
 }
 
-/// Un número suelto es KiB/s según rclone, así que 1000 es más estricto que 1M.
+/// A bare number is KiB/s according to rclone, so 1000 is stricter than 1M.
 #[test]
 fn test_bwlimit_bare_number_compares_as_kib() {
     let c = Config {
@@ -242,8 +242,8 @@ fn test_bwlimit_bare_number_compares_as_kib() {
     assert_eq!(SyncEngine::new(c).bwlimit_arg().as_deref(), Some("1000"));
 }
 
-/// Valor no parseable: se propaga tal cual para que rclone falle en voz alta,
-/// en lugar de sincronizar sin cap en silencio.
+/// Unparsable value: passed through as is so rclone fails loudly,
+/// instead of silently syncing without a cap.
 #[test]
 fn test_bwlimit_unparsable_is_passed_through() {
     let c = Config {
@@ -255,28 +255,28 @@ fn test_bwlimit_unparsable_is_passed_through() {
 
 #[test]
 fn test_parse_speed() {
-    // Formato real `--stats-one-line` de rclone: número + unidad separados por espacio.
+    // Real rclone `--stats-one-line` format: number + unit separated by a space.
     assert_eq!(
         parse_speed(
             "2026/07/06 12:00:01 INFO : Transferred: 1.5 GiB / 2.0 GiB, 75%, 15.2 MiB/s, ETA 1m"
         ),
         Some("15.2 MiB/s".to_string())
     );
-    // Formato compacto (sin espacio) número+unidad.
+    // Compact format (no space) number+unit.
     assert_eq!(
         parse_speed("2026/07/06 12:00:01 INFO : avg 800kBytes/s"),
         Some("800kBytes/s".to_string())
     );
-    // Una línea sin velocidad → None.
+    // A line without speed → None.
     assert_eq!(parse_speed("hola mundo"), None);
 }
 
-/// Nombre real que rclone v1.74 da a los listados y al lock del par
-/// (`gdrive:` + `/home/usuario/GoogleDrive`), verificado en disco.
+/// Real name rclone v1.74 gives to the listings and to the pair's lock
+/// (`gdrive:` + `/home/usuario/GoogleDrive`), verified on disk.
 const GOLDEN_PREFIX: &str = "gdrive_..home_usuario_GoogleDrive";
 
-/// Escribe un listado de bisync con `entries` entradas bajo `cache`.
-/// La primera línea es la cabecera que rclone pone siempre.
+/// Writes a bisync listing with `entries` entries under `cache`.
+/// The first line is the header rclone always includes.
 fn write_bisync_list(cache: &std::path::Path, prefix: &str, side: &str, entries: usize) {
     let dir = cache.join("rclone").join("bisync");
     std::fs::create_dir_all(&dir).unwrap();
@@ -289,8 +289,8 @@ fn write_bisync_list(cache: &std::path::Path, prefix: &str, side: &str, entries:
     std::fs::write(dir.join(format!("{prefix}.{side}.lst")), body).unwrap();
 }
 
-/// Aísla el entorno de un test: remote por defecto y rutas bajo un temp dir
-/// propio (config y caché), restaurándolos al salir.
+/// Isolates a test's environment: default remote and paths under its own
+/// temp dir (config and cache), restoring them on exit.
 fn isolate_env(dir: &std::path::Path) -> impl FnOnce() {
     let prev_cache = std::env::var("XDG_CACHE_HOME").ok();
     let prev_config = std::env::var("GDRIVE_CONFIG_DIR").ok();
@@ -312,10 +312,10 @@ fn isolate_env(dir: &std::path::Path) -> impl FnOnce() {
     }
 }
 
-/// El prefijo debe coincidir con el nombre de archivo que realmente usa rclone.
-/// Un prefijo que no coincide hace que `has_list_files()` sea siempre `false` y
-/// que todo sync lleve `--resync`, que es `--resync-mode path1`: el remoto gana
-/// y pisa los cambios locales. Era el bug original.
+/// The prefix must match the file name rclone actually uses.
+/// A prefix that does not match makes `has_list_files()` always `false` and
+/// every sync carry `--resync`, which is `--resync-mode path1`: the remote wins
+/// and overwrites local changes. That was the original bug.
 #[test]
 fn test_bisync_prefix_matches_real_rclone_file_names() {
     let _g = CONFIG_LOCK.lock().unwrap();
@@ -333,7 +333,7 @@ fn test_bisync_prefix_matches_real_rclone_file_names() {
     restore();
 }
 
-/// rclone recorta el `/` inicial de la ruta y no deja dobles separadores.
+/// rclone trims the leading `/` from the path and leaves no double separators.
 #[test]
 fn test_bisync_prefix_trims_separators_like_rclone() {
     let _g = CONFIG_LOCK.lock().unwrap();
@@ -369,7 +369,7 @@ fn test_bisync_prefix_changes_with_sync_dir() {
     );
 }
 
-/// Un sync ya sembrado **nunca** debe llevar `--resync`.
+/// An already seeded sync must **never** carry `--resync`.
 #[test]
 fn test_build_cmd_seeded_sync_never_uses_resync() {
     let _g = CONFIG_LOCK.lock().unwrap();
@@ -391,8 +391,8 @@ fn test_build_cmd_seeded_sync_never_uses_resync() {
     restore();
 }
 
-/// Un listado con solo la cabecera no es una línea base: es el estado corrupto
-/// que dejaba un run abortado, y sembrarlo es preferible a confiar en él.
+/// A listing with only the header is not a baseline: it is the corrupt state
+/// an aborted run used to leave, and seeding is preferable to trusting it.
 #[test]
 fn test_build_cmd_header_only_listing_is_not_a_baseline() {
     let _g = CONFIG_LOCK.lock().unwrap();
@@ -417,14 +417,14 @@ fn test_build_cmd_first_run_uses_resync() {
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     let c = Config {
-        sync_dir: "/nonexistent/definitely/empty".into(), // sin .lst
+        sync_dir: "/nonexistent/definitely/empty".into(), // no .lst files
         ..Config::default()
     };
     let eng = SyncEngine::new(c);
     let (cmd, _) = eng.build_cmd();
     assert!(cmd.iter().any(|a| a == "--resync"));
     assert!(cmd.iter().any(|a| a == "--stats-one-line"));
-    // `--resync` a secas = `--resync-mode path1` = gana el remoto. Prohibido.
+    // plain `--resync` = `--resync-mode path1` = the remote wins. Forbidden.
     let mode = cmd
         .iter()
         .position(|a| a == "--resync-mode")
@@ -433,8 +433,8 @@ fn test_build_cmd_first_run_uses_resync() {
     restore();
 }
 
-/// Errores parciales (p. ej. un archivo de Drive con 403) no deben volver a
-/// dejar el estado exigiendo un resync completo.
+/// Partial errors (e.g. a Drive file with 403) must not leave the state
+/// demanding a full resync again.
 #[test]
 fn test_build_cmd_recovers_without_forcing_resync() {
     let _g = CONFIG_LOCK.lock().unwrap();
@@ -451,8 +451,8 @@ fn test_build_cmd_recovers_without_forcing_resync() {
     restore();
 }
 
-/// El lock de un proceso muerto sí se limpia: rclone se niega a sincronizar
-/// mientras exista y el daemon quedaría bloqueado para siempre.
+/// The lock of a dead process is cleaned: rclone refuses to sync
+/// while it exists and the daemon would stay blocked forever.
 #[test]
 fn test_clear_orphan_lock_removes_lock_of_dead_pid() {
     let _g = CONFIG_LOCK.lock().unwrap();
@@ -476,7 +476,7 @@ fn test_clear_orphan_lock_removes_lock_of_dead_pid() {
     restore();
 }
 
-/// Un lock ilegible NO se borra a ciegas: podría ser de una sesión viva.
+/// An unreadable lock is NOT deleted blindly: it may belong to a live session.
 #[test]
 fn test_clear_orphan_lock_keeps_unreadable_lock() {
     let _g = CONFIG_LOCK.lock().unwrap();
@@ -530,7 +530,7 @@ fn test_build_cmd_applies_excludes_and_proxy() {
 
 #[test]
 fn test_sync_mode_mirror_has_no_includes() {
-    // `mirror` (default) sincroniza todo el árbol: sin `--include`.
+    // `mirror` (default) syncs the whole tree: no `--include`.
     let c = Config {
         sync_mode: "mirror".into(),
         ..Config::default()
@@ -541,7 +541,7 @@ fn test_sync_mode_mirror_has_no_includes() {
 
 #[test]
 fn test_sync_mode_selective_adds_includes() {
-    // `selective` restringe el sync a las carpetas seleccionadas.
+    // `selective` restricts the sync to the selected folders.
     let c = Config {
         sync_mode: "selective".into(),
         selected_folders: vec!["Docs".into(), "Photos/".into()],
@@ -555,7 +555,7 @@ fn test_sync_mode_selective_adds_includes() {
     );
 
     let (cmd, _) = eng.build_cmd();
-    // Debe contener los dos `--include` con sus valores.
+    // It must contain both `--include` flags with their values.
     let mut seen = Vec::new();
     let mut i = 0;
     while i < cmd.len() {
@@ -582,9 +582,9 @@ fn test_sync_mode_selective_empty_folders_no_includes() {
 
 #[test]
 fn test_legacy_stream_mode_behaves_like_mirror() {
-    // `stream` ya no se ofrece en la UI porque el motor no lo implementa, pero
-    // puede venir guardado en un settings.json viejo: debe comportarse como
-    // `mirror` (sin filtros) y no abrir un sync con `--include`.
+    // `stream` is no longer offered in the UI because the engine does not
+    // implement it, but it can come saved in an old settings.json: it must
+    // behave like `mirror` (no filters) and not start a sync with `--include`.
     let c = Config {
         sync_mode: "stream".into(),
         ..Config::default()
@@ -595,7 +595,7 @@ fn test_legacy_stream_mode_behaves_like_mirror() {
 
 #[test]
 fn test_watch_changes_off_by_default() {
-    // La detección en tiempo real debe estar desactivada por defecto.
+    // Real-time change detection must be disabled by default.
     assert!(!Config::default().watch_changes);
 }
 
@@ -615,7 +615,7 @@ fn test_i18n_es_en() {
     assert_eq!(gdrive_core::i18n::t("status.idle"), "Listo");
     gdrive_core::i18n::set_language("en");
     assert_eq!(gdrive_core::i18n::t("status.idle"), "Ready");
-    // Clave inexistente → devuelve la propia clave.
+    // Missing key → returns the key itself.
     assert_eq!(gdrive_core::i18n::t("no.existe"), "no.existe");
 }
 
@@ -623,21 +623,21 @@ fn test_i18n_es_en() {
 fn test_constants() {
     assert_eq!(gdrive_core::APP_ID, "com.gdrive.Client");
     assert!(!gdrive_core::APP_VERSION.is_empty());
-    // rclone_remote default es "gdrive:".
+    // The default rclone_remote is "gdrive:".
     assert_eq!(gdrive_core::constants::rclone_remote(), "gdrive:");
 }
 
 #[test]
 fn test_run_with_callback_receives_progress() {
     let _g = CONFIG_LOCK.lock().unwrap();
-    // Sin aislamiento, log_write usa ~/.config/gdrive y el test escribe líneas
-    // falsas de sync en el log real del usuario.
+    // Without isolation, log_write uses ~/.config/gdrive and the test writes
+    // fake sync lines into the user's real log.
     let cache = tempfile::TempDir::new().unwrap();
-    // Crea un `rclone` fake en un dir temporal que emite stats y velocidad,
-    // para verificar el contrato del callback sin depender de rclone real.
-    // Ojo: rclone emite logs y `--stats` por **stderr** y deja stdout vacío; el
-    // falso replica ese contrato, así que esto es también la regresión de leer
-    // el stream equivocado.
+    // Creates a fake `rclone` in a temp dir that emits stats and speed,
+    // to verify the callback contract without depending on real rclone.
+    // Note: rclone emits logs and `--stats` on **stderr** and leaves stdout
+    // empty; the fake replicates that contract, so this is also the regression
+    // test for reading the wrong stream.
     let tmp = tempfile::tempdir().unwrap();
     let bin = tmp.path().join("rclone");
     let script = "#!/bin/sh\n\
@@ -674,21 +674,21 @@ echo 'Some other line' >&2\n";
 
     assert!(
         res.is_ok(),
-        "run_with_callback no debería fallar con rclone fake: {:?}",
+        "run_with_callback must not fail with the fake rclone: {:?}",
         res.err()
     );
-    // El formato real trae MiB/GiB: lo que el callback entrega son BYTES.
+    // The real format uses MiB/GiB: what the callback delivers are BYTES.
     assert_eq!(seen_transferred, 512 * 1024 * 1024);
     assert_eq!(seen_total, 2 * 1024 * 1024 * 1024);
-    assert!(seen_speed, "el callback debería reportar velocidad");
+    assert!(seen_speed, "the callback should report speed");
 
     std::env::set_var("PATH", orig_path);
     restore();
 }
 
-/// Un run fallido debe traer en el mensaje la línea ERROR de rclone: el detalle
-/// se saca del `tail` de stderr (que ya se consume en streaming), no de un
-/// segundo pipe que nunca se leía durante el run.
+/// A failed run must include rclone's ERROR line in the message: the detail
+/// comes from the stderr `tail` (already consumed in streaming), not from a
+/// second pipe that was never read during the run.
 #[test]
 fn test_run_reports_failure_detail_from_stderr_lines() {
     let _g = CONFIG_LOCK.lock().unwrap();
@@ -723,10 +723,10 @@ fn test_run_reports_failure_detail_from_stderr_lines() {
     std::env::set_var("PATH", orig_path);
     restore();
 
-    assert!(!out.ok, "el fake sale con código 7");
+    assert!(!out.ok, "the fake exits with code 7");
     assert!(
         out.message.contains("cannotDownloadAbusiveFile"),
-        "el mensaje perdió el detalle de rclone: {}",
+        "the message lost rclone's detail: {}",
         out.message
     );
 }

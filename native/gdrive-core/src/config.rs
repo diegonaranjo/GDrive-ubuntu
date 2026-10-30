@@ -1,8 +1,8 @@
-//! Configuración: defaults tipados, carga y guardado (JSON en ~/.config/gdrive/settings.json).
+//! Configuration: typed defaults, loading and saving (JSON at ~/.config/gdrive/settings.json).
 //!
-//! Reemplaza a `gdrive/config.py`. La diferencia clave frente al Python: es un
-//! struct tipado con `serde`, de modo que un valor inválido se detecta en carga
-//! en vez de filtrarse silenciosamente.
+//! Replaces `gdrive/config.py`. The key difference vs the Python version: it's a
+//! typed struct with `serde`, so an invalid value is detected at load
+//! time instead of silently leaking through.
 
 use std::path::PathBuf;
 
@@ -11,78 +11,78 @@ use serde::{Deserialize, Serialize};
 use crate::constants::sync_dir_default;
 use crate::error::{Error, Result};
 
-/// Subdirectorio de configuración (relativo a `$HOME`).
+/// Configuration subdirectory (relative to `$HOME`).
 pub const CONFIG_DIR: &str = ".config/gdrive";
 
-/// Configuración completa. Los valores por defecto se aplican al deserializar
-/// (los campos ausentes usan `#[serde(default)]`), de modo que un archivo viejo
-/// siempre se completa con defaults actuales.
+/// Complete configuration. Default values are applied when deserializing
+/// (missing fields use `#[serde(default)]`), so an old file
+/// is always completed with current defaults.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Config {
-    /// Carpeta de sincronización local (ruta absoluta o relativa).
+    /// Local synchronization folder (absolute or relative path).
     pub sync_dir: String,
-    /// Intervalo de sincronización automática (`manual`, `5min`, `15min`, `30min`, `1hr`).
+    /// Automatic sync interval (`manual`, `5min`, `15min`, `30min`, `1hr`).
     pub sync_interval: String,
-    /// `true` si la detección de cambios en tiempo real (watcher inotify en
-    /// `sync_dir`) está habilitada. Dispara un sync al detectar cambios locales.
-    /// Desactivada por defecto: la sync automática requiere consentimiento.
+    /// `true` if real-time change detection (inotify watcher on
+    /// `sync_dir`) is enabled. Triggers a sync when local changes are detected.
+    /// Disabled by default: automatic sync requires consent.
     pub watch_changes: bool,
-    /// `true` si la sincronización está pausada por el usuario.
+    /// `true` if synchronization is paused by the user.
     pub paused: bool,
-    /// Límite de ancho de banda global de rclone (cadena vacía = sin límite).
+    /// Global rclone bandwidth limit (empty string = no limit).
     pub bandwidth_limit: String,
-    /// Límite de ancho de banda de descarga (cadena vacía = sin límite).
+    /// Download bandwidth limit (empty string = no limit).
     pub download_limit: String,
-    /// Límite de ancho de banda de subida (cadena vacía = sin límite).
+    /// Upload bandwidth limit (empty string = no limit).
     pub upload_limit: String,
-    /// Carpetas seleccionadas para sincronización selectiva.
+    /// Folders selected for selective synchronization.
     pub selected_folders: Vec<String>,
-    /// Patrones glob excluidos del sync.
+    /// Glob patterns excluded from the sync.
     pub excluded_patterns: Vec<String>,
-    /// Modo de sincronización (`mirror`, `stream`, `selective`).
+    /// Synchronization mode (`mirror`, `stream`, `selective`).
     pub sync_mode: String,
-    /// `true` si las notificaciones de escritorio están habilitadas.
+    /// `true` if desktop notifications are enabled.
     pub notifications_enabled: bool,
-    /// `true` si la app debe iniciarse al arrancar sesión.
+    /// `true` if the app should start at session login.
     pub launch_on_startup: bool,
-    /// `true` si se muestra la carpeta en el gestor de archivos.
+    /// `true` if the folder is shown in the file manager.
     pub show_in_file_manager: bool,
-    /// `true` si se usa proxy para rclone.
+    /// `true` if a proxy is used for rclone.
     pub proxy_enabled: bool,
-    /// URL del proxy (p. ej. `socks5://127.0.0.1:1080`).
+    /// Proxy URL (e.g. `socks5://127.0.0.1:1080`).
     pub proxy_url: String,
-    /// `true` si el cifrado está habilitado.
+    /// `true` if encryption is enabled.
     pub encryption_enabled: bool,
-    /// `true` si el logging está habilitado.
+    /// `true` if logging is enabled.
     pub logging_enabled: bool,
-    /// Nivel de log (`error`, `info`, `debug`, `trace`).
+    /// Log level (`error`, `info`, `debug`, `trace`).
     pub log_level: String,
-    /// `true` si se rotan los archivos de log por tamaño.
+    /// `true` if log files are rotated by size.
     pub log_rotate: bool,
-    /// Tamaño máximo por archivo de log (en MB) antes de rotar.
+    /// Maximum size per log file (in MB) before rotating.
     pub log_max_size_mb: u64,
-    /// Número máximo de archivos de log rotados a conservar.
+    /// Maximum number of rotated log files to keep.
     pub log_max_files: u32,
-    /// Resolución de conflictos pasada a `--conflict-resolve` (`newer`, etc.).
+    /// Conflict resolution passed to `--conflict-resolve` (`newer`, etc.).
     pub conflict_action: String,
-    /// `true` pasa `--remove-empty-dirs`: quita directorios vacíos tras el sync.
+    /// `true` passes `--remove-empty-dirs`: removes empty directories after the sync.
     pub remove_empty_dirs: bool,
-    /// `true` si se excluyen archivos ocultos (`.git`, `.*`).
+    /// `true` if hidden files are excluded (`.git`, `.*`).
     pub skip_hidden: bool,
-    /// `true` pasa `--metadata` (guarda metadatos; no la fecha de modificación).
+    /// `true` passes `--metadata` (stores metadata; not the modification date).
     pub store_metadata: bool,
-    /// Número de transferencias concurrentes (hilos de rclone).
+    /// Number of concurrent transfers (rclone threads).
     pub num_threads: u32,
-    /// Idioma de la interfaz (`es`, `en`).
+    /// Interface language (`es`, `en`).
     pub language: String,
-    /// Ancho de la ventana principal (px).
+    /// Width of the main window (px).
     pub window_width: i32,
-    /// Alto de la ventana principal (px).
+    /// Height of the main window (px).
     pub window_height: i32,
-    /// Timestamp del último sync (se escribe en runtime; no tiene default útil).
+    /// Timestamp of the last sync (written at runtime; has no useful default).
     pub last_sync: String,
-    /// `true` si el último sync terminó con éxito.
+    /// `true` if the last sync finished successfully.
     pub last_sync_ok: bool,
 }
 
@@ -136,7 +136,7 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Acceso compatible con `config.get("clave", default)` de Python.
+    /// Python-compatible accessor for `config.get("key", default)`.
     pub fn get_str(&self, key: &str) -> Option<&str> {
         match key {
             "sync_dir" => Some(&self.sync_dir),
@@ -154,7 +154,7 @@ impl Config {
         }
     }
 
-    /// `get_bool("clave")` para flags booleanos.
+    /// `get_bool("key")` for boolean flags.
     pub fn get_bool(&self, key: &str) -> Option<bool> {
         match key {
             "paused" => Some(self.paused),
@@ -175,7 +175,7 @@ impl Config {
     }
 }
 
-/// Directorio de configuración resuelto (respeta `GDRIVE_CONFIG_DIR` para tests).
+/// Resolved configuration directory (honors `GDRIVE_CONFIG_DIR` for tests).
 pub fn config_home() -> PathBuf {
     match std::env::var_os("GDRIVE_CONFIG_DIR") {
         Some(p) if !p.is_empty() => PathBuf::from(p),
@@ -186,14 +186,14 @@ pub fn config_home() -> PathBuf {
     }
 }
 
-/// Ruta completa del archivo de configuración (`settings.json`).
+/// Full path of the configuration file (`settings.json`).
 pub fn config_file() -> PathBuf {
     config_home().join("settings.json")
 }
 
-/// Carga la configuración del disco, aplicando defaults a campos ausentes.
-/// Devuelve un error explícito si el JSON es inválido (a diferencia del Python
-/// que silenciosamente devolvía defaults ante cualquier excepción).
+/// Loads the configuration from disk, applying defaults to missing fields.
+/// Returns an explicit error if the JSON is invalid (unlike the Python
+/// version, which silently returned defaults on any exception).
 pub fn load_config() -> Result<Config> {
     let f = config_file();
     if !f.exists() {
@@ -204,14 +204,14 @@ pub fn load_config() -> Result<Config> {
     Ok(cfg)
 }
 
-/// Carga con fallback a defaults (comportamiento 100% compatible con el Python:
-/// nunca falla, ante cualquier error devuelve la config por defecto).
+/// Loads with fallback to defaults (100% Python-compatible behavior:
+/// never fails; on any error it returns the default config).
 pub fn load_config_or_default() -> Config {
     load_config().unwrap_or_default()
 }
 
-/// Guarda la configuración de forma atómica (escribe a temp y renombra),
-/// evitando corromper el archivo si el proceso muere a mitad de escritura.
+/// Saves the configuration atomically (writes to a temp file and renames),
+/// avoiding corrupting the file if the process dies mid-write.
 pub fn save_config(cfg: &Config) -> Result<()> {
     let dir = config_home();
     std::fs::create_dir_all(&dir)?;
@@ -226,12 +226,12 @@ pub fn save_config(cfg: &Config) -> Result<()> {
     Ok(())
 }
 
-/// Devuelve `true` si el archivo de configuración existe.
+/// Returns `true` if the configuration file exists.
 pub fn config_exists() -> bool {
     config_file().exists()
 }
 
-/// Elimina el archivo de configuración (restablecer a defaults).
+/// Deletes the configuration file (reset to defaults).
 pub fn reset_config() -> Result<()> {
     let path = config_file();
     if path.exists() {

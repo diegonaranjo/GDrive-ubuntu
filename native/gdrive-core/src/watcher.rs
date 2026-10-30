@@ -1,24 +1,24 @@
-//! Detección de cambios en tiempo real en `sync_dir`.
+//! Real-time change detection in `sync_dir`.
 //!
-//! Observa el sistema de archivos (inotify en Linux vía [`notify`]) de forma
-//! recursiva y, tras un período de calma (debounce), avisa por un canal `mpsc`
-//! de que hay cambios pendientes de sincronizar. El daemon consume ese canal y
-//! dispara el sync.
+//! Watches the file system (inotify on Linux via [`notify`]) recursively and,
+//! after a period of calm (debounce), warns over an `mpsc` channel that there
+//! are changes pending synchronization. The daemon consumes that channel and
+//! triggers the sync.
 //!
-//! # Por qué el debounce
+//! # Why the debounce
 //!
-//! Los editores y gestores de archivos generan ráfagas de decenas de eventos por
-//! una sola acción (guardar un archivo produce `create` + `modify` +
-//! `close_write`). Sin debounce, dispararíamos varios syncs redundantes. Se
-//! espera [`DEBOUNCE`] de calma antes de señalar.
+//! Editors and file managers generate bursts of dozens of events for a single
+//! action (saving a file produces `create` + `modify` + `close_write`). Without
+//! a debounce we would trigger several redundant syncs. It waits for
+//! [`DEBOUNCE`] of calm before signalling.
 //!
-//! # Bucles de realimentación
+//! # Feedback loops
 //!
-//! Durante una sincronización, el propio rclone escribe archivos en `sync_dir`
-//! (los que trae del remoto). Si el watcher reaccionara a esos eventos, se
-//! produciría un bucle infinito (sync → escritura → evento → sync → …). Para
-//! evitarlo, el watcher **descarta eventos mientras el flag `syncing` está
-//! activo**, compartido con el daemon a través de un [`Arc<AtomicBool>`].
+//! During a synchronization, rclone itself writes files into `sync_dir` (the
+//! ones it brings from the remote). If the watcher reacted to those events, an
+//! infinite loop would occur (sync → write → event → sync → …). To avoid it,
+//! the watcher **discards events while the `syncing` flag is active**, shared
+//! with the daemon through an [`Arc<AtomicBool>`].
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -31,28 +31,28 @@ use notify::{RecursiveMode, Watcher};
 
 use crate::error::{Error, Result};
 
-/// Tiempo de calma (sin nuevos eventos) antes de señalar cambios pendientes.
+/// Period of calm (with no new events) before signalling pending changes.
 pub const DEBOUNCE: Duration = Duration::from_secs(5);
 
-/// Milisegundos del reloj de "nunca señalizado" (sin eventos pendientes).
+/// Milliseconds of the "never signalled" clock (no pending events).
 const NO_EVENT: u64 = 0;
 
-/// Vigila una carpeta y emite señales de "hay cambios locales" por un canal.
+/// Watches a folder and emits "there are local changes" signals on a channel.
 #[derive(Debug)]
 pub struct DirWatcher {
-    /// Ruta observada (absoluta a `sync_dir`).
+    /// Observed path (absolute, pointing at `sync_dir`).
     path: PathBuf,
-    /// Flag compartido con el daemon: `true` mientras hay un sync en curso.
+    /// Flag shared with the daemon: `true` while a sync is in progress.
     syncing: Arc<AtomicBool>,
-    /// Marca de tiempo (ms desde epoch) del último evento relevante. `0` = nada
-    /// pendiente. Actualizada por el callback de `notify`, consumida por el hilo
-    /// debouncer.
+    /// Timestamp (ms since epoch) of the last relevant event. `0` = nothing
+    /// pending. Updated by the `notify` callback, consumed by the debouncer
+    /// thread.
     last_event: Arc<AtomicU64>,
 }
 
 impl DirWatcher {
-    /// Crea un watcher para `path`, ignorando eventos mientras `syncing` sea
-    /// `true` (evita el bucle de realimentación descrito arriba).
+    /// Creates a watcher for `path`, ignoring events while `syncing` is
+    /// `true` (avoids the feedback loop described above).
     pub fn new(path: PathBuf, syncing: Arc<AtomicBool>) -> Self {
         DirWatcher {
             path,
@@ -61,19 +61,19 @@ impl DirWatcher {
         }
     }
 
-    /// Devuelve la ruta observada.
+    /// Returns the observed path.
     pub fn path(&self) -> &PathBuf {
         &self.path
     }
 
-    /// Lanza la observación de [`Self::path`] en segundo plano y devuelve el
-    /// receptor de señales. Cada señal indica "hay cambios locales después de un
-    /// período de calma"; el daemon decide disparar el sync.
+    /// Starts watching [`Self::path`] in the background and returns the receiver
+    /// of signals. Each signal means "there are local changes after a period of
+    /// calm"; the daemon decides whether to trigger the sync.
     ///
-    /// El hilo debouncer termina cuando el [`Receiver`] devuelto se suelta.
+    /// The debouncer thread ends when the returned [`Receiver`] is dropped.
     pub fn spawn(self) -> Result<Receiver<()>> {
         let path = self.path.clone();
-        // Comprobación síncrona para devolver el error al llamador.
+        // Synchronous check so the error is returned to the caller.
         if !path.exists() {
             return Err(Error::Rclone(format!(
                 "watch dir no existe: {}",
@@ -83,19 +83,19 @@ impl DirWatcher {
 
         let (tx, rx) = mpsc::channel::<()>();
 
-        // Callback del backend de notificación: marca el momento del último
-        // evento relevante. `notify` lo invoca en su propio hilo.
+        // Callback of the notification backend: stores the moment of the last
+        // relevant event. `notify` invokes it on its own thread.
         let syncing = self.syncing.clone();
         let last_event = self.last_event.clone();
         let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
             let Ok(event) = res else {
-                return; // errores individuales no fatales (archivo ya borrado, etc.)
+                return; // individual non-fatal errors (file already deleted, etc.)
             };
             if syncing.load(Ordering::SeqCst) {
-                return; // anti-bucle: no reaccionar al propio sync.
+                return; // anti-loop: do not react to our own sync.
             }
             if !is_relevant_event(&event) {
-                return; // ignorar accesos/metadata irrelevantes.
+                return; // ignore irrelevant reads/metadata changes.
             }
             last_event.store(now_ms(), Ordering::SeqCst);
         })
@@ -105,19 +105,19 @@ impl DirWatcher {
             .watch(&path, RecursiveMode::Recursive)
             .map_err(|e| Error::Rclone(format!("watch {}: {e}", path.display())))?;
 
-        // Hilo debouncer: cuando pasa [`DEBOUNCE`] sin nuevos eventos, señaliza.
-        // Mantiene `watcher` vivo (se mueve aquí) y termina al soltar `rx`
-        // (detectado por el fallo de `tx.send`).
-        let last_event_db = self.last_event; // mover el último Arc; `self` ya no se usa.
+        // Debouncer thread: when [`DEBOUNCE`] goes by with no new events, it
+        // signals. Keeps `watcher` alive (it is moved in here) and ends when
+        // `rx` is dropped (detected by `tx.send` failing).
+        let last_event_db = self.last_event; // move the last Arc; `self` is unused now.
         thread::spawn(move || {
-            let _watcher = watcher; // mantener el watcher vivo mientras observamos.
+            let _watcher = watcher; // keep the watcher alive while we observe.
             loop {
                 thread::sleep(Duration::from_millis(100));
                 let last = last_event_db.load(Ordering::SeqCst);
                 if last != NO_EVENT && now_ms().saturating_sub(last) >= DEBOUNCE.as_millis() as u64
                 {
-                    // Consumir el evento evitando re-señalizar; si el dueño ya
-                    // cerró el canal (receptor soltado), terminamos.
+                    // Consume the event to avoid re-signalling; if the owner
+                    // already closed the channel (receiver dropped), we exit.
                     last_event_db.store(NO_EVENT, Ordering::SeqCst);
                     if tx.send(()).is_err() {
                         break;
@@ -130,17 +130,17 @@ impl DirWatcher {
     }
 }
 
-/// Marca de tiempo actual en milisegundos desde el epoch.
+/// Current timestamp in milliseconds since the epoch.
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_millis() as u64)
 }
 
-/// Decide si un evento de `notify` cuenta como "cambio de contenido relevante".
+/// Decides whether a `notify` event counts as a "relevant content change".
 ///
-/// Se quedan creaciones, modificaciones de datos/nombres y borrados; se ignoran
-/// accesos (solo lectura) y cambios de metadata que no alteran el contenido.
+/// Creations, data/name modifications and removals are kept; accesses (read
+/// only) and metadata changes that do not alter the content are ignored.
 pub fn is_relevant_event(event: &notify::Event) -> bool {
     use notify::event::ModifyKind;
     use notify::EventKind;

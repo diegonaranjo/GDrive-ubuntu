@@ -1,6 +1,6 @@
-//! Internacionalización ES/EN con override por archivo, espejo de `gdrive/i18n.py`.
+//! ES/EN internationalization with per-file override, mirror of `gdrive/i18n.py`.
 //!
-//! Claves como `status.idle`, `sync.finished_ok`, etc. con `format!`-style
+//! Keys such as `status.idle`, `sync.finished_ok`, etc. with `format!`-style
 //! placeholders (`{used}`, `{total}`).
 
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ struct I18n {
     translations: HashMap<&'static str, &'static str>,
 }
 
-/// Inicializa (o reconfigura) el idioma activo. Seguro llamarlo varias veces.
+/// Initializes (or reconfigures) the active language. Safe to call several times.
 pub fn set_language(lang: &str) {
     let st = STATE.get_or_init(|| {
         RwLock::new(I18n {
@@ -27,7 +27,7 @@ pub fn set_language(lang: &str) {
     guard.translations = builtin(lang);
 }
 
-/// Devuelve el código de idioma activo (p. ej. `"es"`).
+/// Returns the active language code (e.g. `"es"`).
 pub fn get_language() -> String {
     let st = STATE.get_or_init(|| {
         RwLock::new(I18n {
@@ -38,7 +38,7 @@ pub fn get_language() -> String {
     st.read().expect("i18n lock").lang.clone()
 }
 
-/// Traduce una clave. Si falta, devuelve la propia clave (como el Python).
+/// Translates a key. If missing, returns the key itself (like the Python).
 pub fn t(key: &str) -> String {
     let st = STATE.get_or_init(|| {
         RwLock::new(I18n {
@@ -47,14 +47,14 @@ pub fn t(key: &str) -> String {
         })
     });
     let guard = st.read().expect("i18n lock");
-    // 1) override de usuario por archivo (si existe), 2) builtin, 3) clave.
+    // 1) user per-file override (if it exists), 2) builtin, 3) the key.
     override_file(&guard.lang, key)
         .or_else(|| guard.translations.get(key).map(|s| s.to_string()))
         .unwrap_or_else(|| key.to_string())
 }
 
-/// Traduce con argumentos posicionales en estilo `range` de Python: `{0}`, `{1}`…
-/// Sólo sustituye placeholders simples (sin especificadores de formato).
+/// Translates with positional arguments in Python `range` style: `{0}`, `{1}`…
+/// Only substitutes simple placeholders (no format specifiers).
 pub fn t_args(key: &str, args: &[&str]) -> String {
     let mut s = t(key);
     for (i, a) in args.iter().enumerate() {
@@ -63,12 +63,12 @@ pub fn t_args(key: &str, args: &[&str]) -> String {
     s
 }
 
-/// Lista de idiomas disponibles como `(código, nombre legible)`.
+/// List of available languages as `(code, human-readable name)`.
 pub fn available_languages() -> Vec<(&'static str, &'static str)> {
     vec![("es", "Español"), ("en", "English")]
 }
 
-/// Override del usuario: `~/.config/gdrive/translations_{lang}.json`.
+/// User override: `~/.config/gdrive/translations_{lang}.json`.
 fn override_file(lang: &str, key: &str) -> Option<String> {
     let path: PathBuf = PathBuf::from(std::env::var_os("HOME")?)
         .join(".config/gdrive")
@@ -81,8 +81,8 @@ fn override_file(lang: &str, key: &str) -> Option<String> {
     map.get(key).cloned()
 }
 
-/// Traducciones empaquetadas. Subconjunto relevante para el core (sync/logging/
-/// estados). La UI completa vive en la capa GTK y mantiene su propio catálogo.
+/// Bundled translations. The subset relevant to the core (sync/logging/
+/// states). The full UI lives in the GTK layer and keeps its own catalog.
 fn builtin(lang: &str) -> HashMap<&'static str, &'static str> {
     match lang {
         "es" => HashMap::from([

@@ -1,4 +1,4 @@
-"""Página de Estado."""
+"""Status page."""
 
 import time
 
@@ -92,7 +92,7 @@ class StatusPage(Gtk.Box):
         self._apply(self.mgr.status)
 
     def _load_last_sync(self):
-        """Carga el último sync desde config."""
+        """Loads the last sync from config."""
         last = self._config.get("last_sync")
         if last:
             self._last.set_subtitle(last)

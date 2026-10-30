@@ -1,4 +1,4 @@
-"""Carga del CSS externo."""
+"""Loading of the external CSS."""
 
 from pathlib import Path
 
@@ -11,7 +11,7 @@ THEME_FILE = Path(__file__).resolve().parent.parent / "theme" / "theme.css"
 
 
 def load_theme():
-    """Carga theme/theme.css en el display por defecto."""
+    """Loads theme/theme.css into the default display."""
     css = Gtk.CssProvider()
     try:
         css.load_from_path(str(THEME_FILE))

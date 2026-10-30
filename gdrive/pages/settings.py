@@ -1,4 +1,4 @@
-"""Página de Ajustes generales."""
+"""General settings page."""
 
 import subprocess
 
@@ -61,7 +61,7 @@ class SettingsPage(Gtk.Box):
                             lambda r, _: self._set("show_in_file_manager", r.get_active()))
         g1.add(sw_nautilus)
 
-        # ── Idioma ──
+        # ── Language ──
         g_lang = Adw.PreferencesGroup(title=t("settings.language"))
         col.append(g_lang)
 
@@ -79,7 +79,7 @@ class SettingsPage(Gtk.Box):
         lang_row.connect("notify::selected", self._on_language)
         g_lang.add(lang_row)
 
-        # ── Red ──
+        # ── Network ──
         g2 = Adw.PreferencesGroup(title=t("settings.network"))
         col.append(g2)
 
@@ -97,7 +97,7 @@ class SettingsPage(Gtk.Box):
         proxy.add_suffix(entry)
         g2.add(proxy)
 
-        # ── Caché ──
+        # ── Cache ──
         g3 = Adw.PreferencesGroup(title=t("settings.cache"))
         col.append(g3)
 
@@ -106,7 +106,7 @@ class SettingsPage(Gtk.Box):
         clear.connect("clicked", lambda _: self._clear_cache())
         g3.add(clear)
 
-        # ── Seguridad ──
+        # ── Security ──
         g4 = Adw.PreferencesGroup(title=t("settings.security"))
         col.append(g4)
 
@@ -164,7 +164,7 @@ class SettingsPage(Gtk.Box):
         cnt.add_suffix(cntsp)
         g5.add(cnt)
 
-        # ── Archivos de registro ──
+        # ── Log files ──
         g6 = Adw.PreferencesGroup(title=t("settings.log_files"))
         col.append(g6)
 
@@ -187,7 +187,7 @@ class SettingsPage(Gtk.Box):
         folder_row.add_suffix(fbtn)
         g6.add(folder_row)
 
-        # ── Acciones de registro ──
+        # ── Log actions ──
         g7 = Adw.PreferencesGroup(title=t("settings.log_actions"))
         col.append(g7)
 
@@ -202,7 +202,7 @@ class SettingsPage(Gtk.Box):
         clr.connect("clicked", lambda _: self._confirm_clear_logs())
         g7.add(clr)
 
-        # ── Acerca de ──
+        # ── About ──
         g8 = Adw.PreferencesGroup(title=t("settings.about"))
         col.append(g8)
 

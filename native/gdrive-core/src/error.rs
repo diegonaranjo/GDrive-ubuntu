@@ -1,54 +1,54 @@
-//! Tipo de error unificado del crate.
+//! Unified error type for the crate.
 //!
-//! `gdrive-core` usa un único [`Error`] para todas las operaciones fallibles,
-//! en lugar de `Result<T, String>`. Se implementa con [`thiserror`], de modo que
-//! cada variante describe su causa con contexto y los callers pueden usar `?`
-//! directamente. Es `Send + Sync + 'static`, por lo que es seguro propagarlo a
-//! través de boundaries async (p. ej. tareas de Tokio).
+//! `gdrive-core` uses a single [`Error`] for all fallible operations instead of
+//! `Result<T, String>`. It is implemented with [`thiserror`], so each variant
+//! describes its cause with context and callers can use `?` directly. It is
+//! `Send + Sync + 'static`, so it is safe to propagate it across async
+//! boundaries (e.g. Tokio tasks).
 
 use std::path::PathBuf;
 
-/// Error del núcleo de GDrive.
+/// Error of the GDrive core.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    /// Error de entrada/salida del sistema de archivos.
+    /// File-system input/output error.
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
 
-    /// La configuración no se pudo (de)serializar.
+    /// The configuration could not be (de)serialized.
     #[error("config JSON inválido: {0}")]
     Serde(#[from] serde_json::Error),
 
-    /// `rclone` no pudo ejecutarse o devolvió un error.
+    /// `rclone` could not be run or returned an error.
     #[error("rclone: {0}")]
     Rclone(String),
 
-    /// rclone dejó de emitir salida durante `SYNC_IDLE_TIMEOUT`.
+    /// rclone stopped emitting output for `SYNC_IDLE_TIMEOUT`.
     #[error("rclone sin actividad: se terminó el sync por estancamiento")]
     SyncTimeout,
 
-    /// Un subproceso terminó con un código distinto de cero.
+    /// A subprocess ended with a non-zero exit code.
     #[error("subproceso salió con código {0}")]
     ProcessExit(String),
 
-    /// No se pudo escribir la configuración.
+    /// The configuration could not be written.
     #[error("no se pudo persistir la configuración en {path}: {detail}")]
     SaveConfig {
-        /// Ruta del archivo de configuración.
+        /// Path of the configuration file.
         path: PathBuf,
-        /// Detalle de la causa del fallo.
+        /// Detail of the cause of the failure.
         detail: String,
     },
 
-    /// Un valor de configuración era inválido.
+    /// A configuration value was invalid.
     #[error("valor de configuración inválido para '{key}': {value}")]
     InvalidConfig {
-        /// Clave de configuración afectada.
+        /// Configuration key affected.
         key: String,
-        /// Valor inválido recibido.
+        /// Invalid value received.
         value: String,
     },
 }
 
-/// Alias de [`std::result::Result`] con el [`Error`] del crate.
+/// Alias of [`std::result::Result`] with the crate's [`Error`].
 pub type Result<T, E = Error> = std::result::Result<T, E>;

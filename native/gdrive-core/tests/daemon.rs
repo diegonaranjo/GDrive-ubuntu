@@ -1,4 +1,4 @@
-//! Tests del daemon (lógica pura, sin requerir bus de sesión).
+//! Daemon tests (pure logic, no session bus required).
 
 #![cfg(test)]
 
@@ -21,7 +21,7 @@ fn test_shared_state_initial() {
     assert_eq!(state.current_status(), SyncStatus::Idle);
     assert!(!state.is_paused());
     assert!(!state.quit_requested.load(Ordering::SeqCst));
-    // Un sync no está en curso inicialmente (flag syncing = false).
+    // A sync is not running initially (syncing flag = false).
     assert!(!state.syncing.load(Ordering::SeqCst));
 }
 

@@ -1,14 +1,14 @@
 #!/bin/bash
 #
-# setup.sh — Instalación de usuario para GDrive
+# setup.sh — User installation for GDrive
 #
-# Ejecutar tras clonar el repositorio. SIN sudo. Instala:
-#   - Iconos (google-drive + Lucide) en ~/.local/share/icons
-#   - Extensión Nautilus en ~/.local/share/nautilus-python/extensions
-#   - Servicio systemd de usuario gdrive-tray.service
-#   - Lanzador .desktop para el menú de aplicaciones (con la ruta real de este clone)
+# Run after cloning the repository. NO sudo. It installs:
+#   - Icons (google-drive + Lucide) into ~/.local/share/icons
+#   - Nautilus extension into ~/.local/share/nautilus-python/extensions
+#   - User systemd service gdrive-tray.service
+#   - .desktop launcher for the applications menu (with this clone's real path)
 #
-# Uso:
+# Usage:
 #   git clone <repo> ~/GDrive && cd ~/GDrive && ./setup.sh
 #
 set -e
@@ -21,7 +21,7 @@ NC='\033[0m'
 log()  { echo -e "${GREEN}[✓]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 
-# ── 1. Comprobar dependencias ───────────────────────────────────────────────
+# ── 1. Check dependencies ───────────────────────────────────────────────────
 check_dep() {
     if ! command -v "$1" >/dev/null 2>&1 && ! python3 -c "import gi; gi.require_version('$2','$3')" 2>/dev/null; then
         warn "Falta dependencia: $1 (gi $2 $3). Instálala antes de continuar."
@@ -36,25 +36,25 @@ command -v rclone >/dev/null 2>&1 \
 python3 -c "import gi; gi.require_version('AyatanaAppIndicator3','0.1')" 2>/dev/null \
     || warn "Falta AppIndicator3 (tray). Instala: sudo apt install gir1.2-ayatanaappindicator3-0.1"
 
-# ── 2. Iconos ───────────────────────────────────────────────────────────────
+# ── 2. Icons ────────────────────────────────────────────────────────────────
 ICONS_DIR="$HOME/.local/share/icons/hicolor/scalable"
 log "Instalando iconos en $ICONS_DIR ..."
 mkdir -p "$ICONS_DIR"/{actions,places,status,mimetypes,categories}
 
-# Icono principal en places (para .desktop y bandeja)
+# Main icon in places (for the .desktop and the tray)
 cp -f "$PROJECT_DIR/icons/google-drive.svg" "$ICONS_DIR/places/google-drive.svg"
 
-# Iconos de estado de GDrive
+# GDrive status icons
 cp -f "$PROJECT_DIR"/icons/gdrive-*.svg "$ICONS_DIR/status/" 2>/dev/null || true
 
-# Iconos Lucide symbolic
+# Lucide symbolic icons
 if [ -d "$PROJECT_DIR/icons/lucide" ]; then
     find "$PROJECT_DIR/icons/lucide" -name '*.svg' -exec cp -f {} "$ICONS_DIR/actions/" \; 2>/dev/null || true
 fi
 gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
 log "Iconos instalados"
 
-# ── 2b. Daemon nativo (Rust) ────────────────────────────────────────────────
+# ── 2b. Native daemon (Rust) ────────────────────────────────────────────────
 log "Instalando daemon nativo (gdrive-daemon)..."
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
@@ -75,7 +75,7 @@ else
     warn "  ./setup.sh   (re-ejecuta después)"
 fi
 
-# ── 3. Extensión Nautilus ───────────────────────────────────────────────────
+# ── 3. Nautilus extension ───────────────────────────────────────────────────
 NAUT_EXT_DIR="$HOME/.local/share/nautilus-python/extensions"
 if [ -d "$PROJECT_DIR/nautilus-extension" ]; then
     log "Instalando extensión Nautilus en $NAUT_EXT_DIR ..."
@@ -83,7 +83,7 @@ if [ -d "$PROJECT_DIR/nautilus-extension" ]; then
     cp -f "$PROJECT_DIR/nautilus-extension/goa_drive.py" "$NAUT_EXT_DIR/"
 fi
 
-# ── 4. Servicio systemd de usuario (tray) ───────────────────────────────────
+# ── 4. User systemd service (tray) ──────────────────────────────────────────
 SYSTEMD_DIR="$HOME/.config/systemd/user"
 log "Instalando servicio systemd en $SYSTEMD_DIR ..."
 mkdir -p "$SYSTEMD_DIR"
@@ -103,7 +103,7 @@ EOF
 systemctl --user daemon-reload
 log "Servicio instalado. Habilítalo con: systemctl --user enable --now gdrive-tray.service"
 
-# ── 5. Lanzador .desktop ────────────────────────────────────────────────────
+# ── 5. .desktop launcher ────────────────────────────────────────────────────
 APPS_DIR="$HOME/.local/share/applications"
 log "Instalando lanzador en $APPS_DIR ..."
 mkdir -p "$APPS_DIR"
@@ -122,7 +122,7 @@ Keywords=Google;Drive;Cloud;Sync;
 EOF
 update-desktop-database "$APPS_DIR" 2>/dev/null || true
 
-# ── 6. Configurar rclone (interactivo) ──────────────────────────────────────
+# ── 6. Configure rclone (interactive) ───────────────────────────────────────
 if command -v rclone >/dev/null 2>&1; then
     if ! rclone listremotes 2>/dev/null | grep -qx "gdrive:"; then
         warn "No se encontró el remote 'gdrive:' en rclone."

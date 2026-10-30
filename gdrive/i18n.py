@@ -249,7 +249,7 @@ _BUILTIN = {
         "sync_manager.paused": "Pausado",
         "sync_manager.resumed": "Reanudado",
 
-        # ── Singleton / instancia única ──
+        # ── Singleton / single instance ──
         "app.already_running_title": "Google Drive ya está abierto",
         "app.already_running_body": "Ya hay una instancia de Google Drive en ejecución. Se ha activado la ventana existente.",
         "app.already_running_notif": "Google Drive ya está abierto",

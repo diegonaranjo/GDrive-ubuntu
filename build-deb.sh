@@ -6,7 +6,8 @@
 set -e
 
 PACKAGE_NAME="google-drive-ubuntu"
-VERSION="1.0.1"
+# DEBIAN/control is the single source of truth for the version.
+VERSION="$(grep '^Version:' DEBIAN/control | cut -d' ' -f2)"
 BUILD_DIR="build"
 DEB_DIR="$BUILD_DIR/$PACKAGE_NAME"
 

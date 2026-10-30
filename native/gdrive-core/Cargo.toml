@@ -2,7 +2,7 @@
 name = "gdrive-core"
 version = "1.1.0"
 edition = "2021"
-description = "Core de GDrive: config, sync (rclone bisync), logging e i18n. Motor nativo para el cliente de escritorio."
+description = "GDrive core: config, sync (rclone bisync), logging and i18n. Native engine for the desktop client."
 license = "MIT"
 
 [lib]
@@ -21,20 +21,20 @@ path = "src/bin/daemon.rs"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-# Detección de cambios en el sistema de archivos (inotify en Linux) para
-# disparar la sincronización en tiempo real. Serie 8 estable.
+# File-system change detection (inotify on Linux) used to trigger real-time
+# synchronization. Stable 8.x series.
 notify = "8"
-# D-Bus (Fase 2). Sólo tokio como runtime para no lanzar hilos extra detrás.
+# D-Bus (Phase 2). tokio only as the runtime, so it doesn't spawn extra threads behind our back.
 zbus = { version = "5", default-features = false, features = ["tokio"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal"] }
 
 [dev-dependencies]
 tempfile = "3"
 
-# Lints del proyecto. Ver rust-best-practices, capítulo 2. Se ejecutan con
+# Project lints. See rust-best-practices, chapter 2. They run with
 # `cargo clippy --all-targets --all-features --locked -- -D warnings`.
-# `pedantic`/`nursery` se dejan como opt-in (ver Makefile/CI) por su ruido.
-# Las prioridades explícitas evitan conflictos entre grupos y lints sueltos.
+# `pedantic`/`nursery` are left as opt-in (see Makefile/CI) because of their noise.
+# The explicit priorities avoid conflicts between groups and individual lints.
 [lints.rust]
 unsafe_code = { level = "forbid", priority = 3 }
 nonstandard_style = { level = "deny", priority = -2 }

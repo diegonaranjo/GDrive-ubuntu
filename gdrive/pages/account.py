@@ -1,4 +1,4 @@
-"""Página de Cuenta."""
+"""Account page."""
 
 import subprocess
 import threading

@@ -78,7 +78,7 @@ HOME="$BOX/home" RCLONE_CONFIG="$BOX/home/rclone.conf" \
 
 cat > "$BOX/inner.sh" <<'INNER'
 #!/usr/bin/env bash
-# Dentro de la caja: DISPLAY, HOME y RCLONE_CONFIG ya estan puestos.
+# Inside the sandbox: DISPLAY, HOME and RCLONE_CONFIG are already set.
 set -u
 export GDK_BACKEND=x11
 
@@ -109,10 +109,10 @@ except Exception:
 PY
 }
 
-capturar() {  # $1 = destino .png; reintenta hasta que la ventana este dibujada
+capturar() {  # $1 = destination .png; retries until the window is drawn
     local i px
     for i in 1 2 3 4 5 6 7 8; do
-        # -draw_mouse 0 va ANTES de -i: es una opcion de la entrada x11grab.
+        # -draw_mouse 0 goes BEFORE -i: it is an x11grab input option.
         ffmpeg -loglevel error -f x11grab -video_size 1180x780 -draw_mouse 0 \
             -i "$DISPLAY" -frames:v 1 "$1" -y 2>/dev/null
         px=$(contenido "$1")
