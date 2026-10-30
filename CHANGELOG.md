@@ -9,10 +9,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - **Developer-facing text is now English throughout.** Every code comment,
-  docstring, module doc, packaging file and installer message was translated
-  (~660 lines across 40 files). The application's own strings did not change:
-  the Spanish and English catalogs are byte-identical, so a Spanish locale still
-  sees exactly the same UI as before.
+  docstring, module doc, packaging file and installer message was translated.
+  The application's own strings did not change: the Spanish and English
+  catalogs are byte-identical, so a Spanish locale still sees exactly the same
+  UI as before.
 - `.desktop` entries now ship an English `Comment=` plus a `Comment[es]`
   variant, so the desktop shell localizes them instead of always showing
   Spanish.
