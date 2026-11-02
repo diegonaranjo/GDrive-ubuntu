@@ -105,7 +105,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`debug.log` carried two clocks.** The Rust core derived its stamp from
   `SystemTime` alone, which is UTC, while the Python writer used
   `time.strftime` (local) and the daemon embeds rclone's own local timestamps
-  in the very lines it logs. On a UTC-3 host that put a tray click and the sync
+  in the very lines it logs. On a host whose offset is not UTC that put a tray click and the sync
   it triggered three hours apart, in adjacent lines of one file. Both loggers
   now use local time (`chrono::Local`), covered by a test that compares the
   stamp against `date` rather than against the library under test.

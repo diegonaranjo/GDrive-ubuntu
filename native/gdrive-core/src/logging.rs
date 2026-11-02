@@ -131,7 +131,7 @@ fn log_dir() -> PathBuf {
 /// `%Y-%m-%d %H:%M:%S` in the machine's local time, matching what the Python
 /// side writes (`time.strftime`, also local) and the timestamps rclone prints
 /// in the lines this file embeds. Deriving it from `SystemTime` alone yields
-/// UTC, which put this log three hours ahead of the rest on a UTC-3 host.
+/// UTC, which put this log hours ahead of the rest on a host west of UTC.
 fn timestamp_log() -> String {
     Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }

@@ -172,7 +172,7 @@ actually prevents the mistake from coming back:
 
 ```ini
 ; ~/.gitconfig
-[includeIf "gitdir:~/proyectos/GDrive/"]
+[includeIf "gitdir:~/repos/GDrive/"]
   [user]
     email = you@users.noreply.github.com
 ```
