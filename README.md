@@ -126,6 +126,26 @@ crashed sync engine comes back on its own and `rclone` children stay inside the
 unit's cgroup. When the unit is installed, `launch.sh` and the UI start the
 engine through it instead of spawning an unsupervised copy of the binary.
 
+Verify the wiring:
+
+```bash
+# Both units enabled, and wanted by the graphical session (not default.target)
+systemctl --user is-enabled gdrive-daemon.service gdrive-tray.service
+ls ~/.config/systemd/user/graphical-session.target.wants/ | grep gdrive
+
+# They stop with the session, instead of outliving it until the display vanishes
+systemctl --user show gdrive-daemon.service gdrive-tray.service -p Id -p PartOf
+
+# The engine is really supervised: kill it hard and watch systemd bring it back
+systemctl --user kill -s KILL gdrive-daemon.service; sleep 8
+systemctl --user show gdrive-daemon.service -p ActiveState -p MainPID -p NRestarts
+busctl --user call com.gdrive.Client /com/gdrive/Client com.gdrive.Daemon1 GetStatus
+```
+
+Expected: `enabled`, one symlink per unit in `graphical-session.target.wants/`,
+`PartOf=graphical-session.target` for both, then `ActiveState=active` with
+`NRestarts=1` and a fresh `MainPID` after the kill.
+
 > `setup.sh` runs **without sudo** and only touches your `~/.local`, `~/.config`, and the user-scoped systemd services. No root privileges required.
 
 ---

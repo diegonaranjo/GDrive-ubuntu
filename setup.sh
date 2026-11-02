@@ -117,6 +117,7 @@ cat > "$SYSTEMD_DIR/gdrive-tray.service" <<EOF
 [Unit]
 Description=GDrive Tray Icon
 After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 ExecStart=/usr/bin/python3 $PROJECT_DIR/gdrive-tray.py
@@ -124,7 +125,7 @@ Restart=on-failure
 RestartSec=5
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
 EOF
 systemctl --user daemon-reload
 log "Enable them with: systemctl --user enable --now gdrive-daemon.service gdrive-tray.service"

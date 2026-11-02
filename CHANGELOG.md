@@ -53,6 +53,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `com.gdrive.Client`. That is the intended singleton outcome, so it now exits
   0 — otherwise systemd's `Restart=on-failure` would relaunch the duplicate
   forever beside the real owner.
+- The tray unit `setup.sh` generated was **wanted by `default.target` and had no
+  `PartOf=`**, unlike the unit actually installed on a working machine. Without
+  `PartOf=` the tray is not stopped when the session target goes down: it
+  outlives the session until the display connection dies under it, GTK exits 1,
+  and `Restart=on-failure` relaunches a copy that dies again a few hundred
+  milliseconds later — the `status=1/FAILURE` pair visible in the journal at
+  every logout of the last three sessions. Both units now sit under
+  `graphical-session.target` with `PartOf=`, and `AGENTS.md` documents how to
+  verify it, including a scratch-target recipe for measuring `PartOf` without
+  ending your own desktop (measured: the `PartOf` unit stops
+  `inactive/dead Result=success NRestarts=0`; the one without it keeps running).
 - The README and `AGENTS.md` told users to run `rclone bisync … --resync` as the
   manual-sync recipe. Plain `--resync` is `--resync-mode path1`, i.e. **the
   remote wins**, which is the exact data loss this release fixed. The recipes

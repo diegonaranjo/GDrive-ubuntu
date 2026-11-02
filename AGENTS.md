@@ -189,6 +189,38 @@ copy would exit **0** anyway, because a duplicate losing the D-Bus name is the
 intended singleton behavior, not a fault (that is what keeps
 `Restart=on-failure` from looping).
 
+### Verifying the services
+
+```bash
+systemctl --user is-enabled gdrive-daemon.service gdrive-tray.service
+ls ~/.config/systemd/user/graphical-session.target.wants/ | grep gdrive
+ls ~/.config/systemd/user/default.target.wants/ | grep gdrive   # must print nothing
+systemctl --user show gdrive-daemon.service gdrive-tray.service -p Id -p PartOf
+systemctl --user kill -s KILL gdrive-daemon.service; sleep 8
+systemctl --user show gdrive-daemon.service -p ActiveState -p MainPID -p NRestarts
+```
+
+Both units belong to `graphical-session.target` (`WantedBy`) and are stopped
+with it (`PartOf`). A tray unit wanted by `default.target` and missing `PartOf`
+survives session teardown until the display connection dies under it; GTK then
+exits 1, and `Restart=on-failure` relaunches a copy that dies again within a
+few hundred milliseconds (`journalctl --user | grep gdrive-tray` shows the
+`status=1/FAILURE` pair). After a real logout, the check is:
+
+```bash
+journalctl --user -b -1 -u gdrive-tray.service | tail -5
+```
+
+Expect `Stopping…` → `Deactivated`/`Succeeded`, not `Main process exited …
+status=1/FAILURE` followed by a restart.
+
+To measure `PartOf` without ending your own session (stopping
+`graphical-session.target` takes the desktop down with it), use a scratch
+target and two dummy units — one with `PartOf=`, one without — and stop the
+target. Measured here: the `PartOf` unit ends `inactive/dead Result=success
+NRestarts=0`, the one without it stays `active/running`. Delete the probe units
+and `systemctl --user daemon-reload` afterwards.
+
 ---
 
 ## Known issues
