@@ -20,13 +20,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ghp_`/`github_pat_`/`AKIA`/`xox*`, non-empty `access_token`/`refresh_token`/
   `client_secret`, `Authorization:` headers, `user:pass@host` URLs), absolute
   paths belonging to the machine running it, and file names such as `.env`,
-  `*.pem`, `rclone.conf` or `credentials*`. `setup.sh` installs the hooks
-  through `core.hooksPath`.
+  `*.pem`, `rclone.conf` or `credentials*`.
+- **`tools/install-guard.sh`**, called by `setup.sh`, installs those hooks and
+  closes the hole that caused the original leak: a *fresh* clone inherited the
+  machine's global identity. The installer pins a noreply `user.email` for that
+  clone (repo-local only; the global config is left alone), seeds
+  `.git/git-guard.deny` with the global address so it can never sign a commit
+  here, and turns on `gitguard.strict-identity`. Running it twice is a no-op,
+  and the four scripts are committed with mode 755 so a clone gets working
+  hooks. Verified on a throwaway clone: it started with the business address
+  inherited from the global config and ended signing
+  `<login>@users.noreply.github.com`, then refused a commit that staged a
+  `/media/<user>/...` path and accepted an innocent one.
 - The policy is deliberately asymmetric: an ordinary contributor identity gets a
   note, not a refusal, so the guard cannot be used to bully a pull request. The
   maintainer's clone is the one that gets strict signing, and the rule is
   enforced where it belongs — `~/.gitconfig` `includeIf` per path — so a *new*
   clone cannot reintroduce the mistake.
+- **`tools/guard-battery.sh`**: 13 cases over the scanner, each declaring the
+  exit code it must produce, including the ones that must fail, plus a check
+  that a finding is reported once rather than per duplicated pattern. Run it
+  after any change to `tools/secret-scan.sh`. It caught two regressions while
+  this was being written — a subshell that made the script report findings
+  while exiting 0, and a deduplication that silently dropped `/media/<user>`
+  from the path list.
 - The guard stores no personal identifier: the path rules are derived at run
   time from `$HOME`/`$USER` and the identity list lives in untracked files, so
   the tool meant to stop a leak cannot itself become one.

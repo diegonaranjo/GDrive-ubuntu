@@ -232,8 +232,11 @@ the push.
 
 - `tools/secret-scan.sh` is the single implementation, run as `staged` by
   `tools/githooks/pre-commit`, as `range <A..B>` by `tools/githooks/pre-push`
-  and by the CI `guard` job. `setup.sh` installs the hooks with
-  `core.hooksPath` and adds `git-guard.*` to `.git/info/exclude`.
+  and by the CI `guard` job. `tools/install-guard.sh` (called by `setup.sh`)
+  sets `core.hooksPath`, adds `git-guard.*` to `.git/info/exclude`, refuses the
+  machine's global identity in this clone and pins a noreply `user.email`
+  repo-locally when the clone would inherit a personal one. It never edits the
+  global git config.
 - Identity policy is asymmetric on purpose so contributors are not blocked:
   `.git/git-guard.deny` (untracked, seeded from the machine's global
   `user.email`) refuses that address; `git config gitguard.strict-identity true`
@@ -242,10 +245,13 @@ the push.
   `.git/git-guard.local` allows additional addresses.
 - Content rules are derived at run time (`$HOME`, `$USER`, `id -un`) and the
   patterns are generic, so the guard never writes a personal identifier into
-  the repository. Test a change to it against known-bad commits before
-  trusting it: detection without a non-zero exit is worthless (a pipeline put
-  `scan_stream` in a subshell once and the script reported findings while
-  passing).
+  the repository. After any change to the scanner run `tools/guard-battery.sh`:
+  13 cases, each declaring its expected exit code, including the ones that must
+  fail. Two real regressions it catches, both introduced while writing this:
+  `scan_stream` on the right of a pipeline (subshell, so findings printed while
+  the script exited 0) and a dedupe `continue` that silently dropped
+  `/media/<user>` from the list. Detection without a failing exit code is
+  worthless, and a green-only instrument proves nothing.
 
 ## Known issues
 

@@ -136,8 +136,11 @@ remove the objects: they keep answering over the API and the tarball endpoint
 until the whole repository is deleted, which is the only "undo" and costs the
 history. So the project refuses personal or client identities *before* a push.
 
-`setup.sh` sets `core.hooksPath = tools/githooks`, and `tools/secret-scan.sh`
-runs on every commit and every push. It refuses:
+`setup.sh` calls `tools/install-guard.sh`, which sets
+`core.hooksPath = tools/githooks`, and `tools/secret-scan.sh` then runs on every
+commit and every push. The installer also pins a noreply identity **for that
+clone** when the clone would otherwise inherit a personal one (repo-local only —
+it never edits your global config). It refuses:
 
 - a signing identity listed in `.git/git-guard.deny` — untracked, seeded from
   your global `user.email` when that is not a noreply address;
@@ -151,7 +154,14 @@ runs on every commit and every push. It refuses:
 - file names that must not be tracked: `.env`, `*.pem`, `*.key`, `*.p12`,
   `id_rsa*`, `rclone.conf`, `credentials*`, `.netrc`, keyrings.
 
-Give the clone an explicit identity:
+A test that needs a credential-shaped string builds it at run time (see
+`tools/guard-battery.sh`): a literal fixture would be published with the
+repository, and would also trip the scanner on its own test file. After changing
+`tools/secret-scan.sh`, run `tools/guard-battery.sh` — 13 cases, each asserting
+the exit code it expects, including the ones that must fail.
+
+Give the clone an explicit identity (`./setup.sh` or `tools/install-guard.sh`
+does this for you):
 
 ```bash
 git config user.email "you@users.noreply.github.com"

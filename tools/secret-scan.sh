@@ -59,12 +59,21 @@ FORBIDDEN_NAMES=(
 # Paths that belong to whoever runs this script, so the rule travels with the
 # machine rather than being written down in the repository.
 PERSONAL_PATHS=()
-if [[ -n "${HOME:-}" ]]; then
-	PERSONAL_PATHS+=("$HOME")
-fi
+add_personal_path() {
+	local p="${1:-}"
+	[[ -n "$p" ]] || return 0
+	case " ${PERSONAL_PATHS[*]-} " in
+	*" $p "*) return 0 ;;
+	esac
+	PERSONAL_PATHS+=("$p")
+}
+add_personal_path "${HOME:-}"
 for u in "${USER:-}" "$(id -un 2>/dev/null || true)"; do
 	[[ -n "$u" ]] || continue
-	PERSONAL_PATHS+=("/home/$u" "/media/$u" "/mnt/$u" "/Users/$u")
+	add_personal_path "/home/$u"
+	add_personal_path "/media/$u"
+	add_personal_path "/mnt/$u"
+	add_personal_path "/Users/$u"
 done
 
 fail=0
