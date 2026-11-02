@@ -6,7 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- The bug-report template asked for `journalctl --user -u gdrive-tray.service`
+  only, and its example said "GDrive 1.0.0". It now names both user units and
+  the current version, so the first thing a triager sees is the log of the unit
+  that actually runs the sync.
 
 ## [1.2.0] - 2026-11-02
 

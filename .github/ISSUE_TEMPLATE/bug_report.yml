@@ -29,7 +29,7 @@ body:
       label: Environment
       description: Distribution, app version, rclone version, Wayland or X11.
       placeholder: |
-        Ubuntu 26.04 (GNOME, Wayland), GDrive 1.0.0, rclone 1.74.3
+        Ubuntu 26.04 (GNOME, Wayland), GDrive 1.2.0, rclone 1.74.3
     validations:
       required: true
   - type: textarea
@@ -38,6 +38,6 @@ body:
       label: Relevant logs
       description: >
         Paste from ~/.config/gdrive/debug.log or `journalctl --user -u
-        gdrive-tray.service`. Redact file names or account details you do not
-        want public.
+        gdrive-daemon.service -u gdrive-tray.service`. Redact file names or
+        account details you do not want public.
       render: shell
