@@ -17,7 +17,13 @@ fi
 # this script, so launch.sh "saw" processes that did not exist and skipped
 # startup (measured: `busctl --user status` gives 0 with owner, 1 without).
 if [ -x "$DAEMON_BIN" ] && ! busctl --user status com.gdrive.Client > /dev/null 2>&1; then
-    "$DAEMON_BIN" >/dev/null 2>&1 &
+    if systemctl --user cat gdrive-daemon.service > /dev/null 2>&1; then
+        # setup.sh installed the supervised unit: let systemd own the process
+        # so a crashed engine comes back without the UI spawning a copy.
+        systemctl --user start gdrive-daemon.service > /dev/null 2>&1 || true
+    else
+        "$DAEMON_BIN" >/dev/null 2>&1 &
+    fi
 fi
 
 # 2. Main window (only if there is no instance already running).

@@ -27,6 +27,7 @@ notify = "8"
 # D-Bus (Phase 2). tokio only as the runtime, so it doesn't spawn extra threads behind our back.
 zbus = { version = "5", default-features = false, features = ["tokio"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
 tempfile = "3"

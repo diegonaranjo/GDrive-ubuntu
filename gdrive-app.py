@@ -59,6 +59,11 @@ def _ensure_daemon() -> bool:
     """Starts the native daemon if not running. Returns whether it is available."""
     if _daemon_running():
         return True
+    from gdrive.helpers import has_daemon_service, start_daemon_service
+    if has_daemon_service():
+        # Supervised by systemd: ask the service rather than spawn a copy that
+        # nothing would restart if it died later.
+        return start_daemon_service()
     binary = _daemon_binary()
     if not binary:
         return False

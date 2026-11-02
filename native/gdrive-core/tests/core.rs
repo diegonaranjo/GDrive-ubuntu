@@ -5,7 +5,7 @@
 use std::sync::Mutex;
 
 use gdrive_core::config::{load_config, reset_config, save_config, Config};
-use gdrive_core::logging::format_size;
+use gdrive_core::logging::{format_size, log_write, write_activity, Level};
 use gdrive_core::rclone::{parse_speed, parse_stats};
 use gdrive_core::sync::{interval_seconds, SyncEngine};
 
@@ -729,4 +729,62 @@ fn test_run_reports_failure_detail_from_stderr_lines() {
         "the message lost rclone's detail: {}",
         out.message
     );
+}
+
+/// `debug.log` and `activity.log` must carry the machine's local clock. The
+/// Python writer uses `time.strftime` (local) and the daemon embeds rclone's
+/// own local timestamps inside these very lines; a UTC stamp (what deriving
+/// the date from `SystemTime` alone gives) put them 3 h apart in one file.
+///
+/// `date` is the source of truth here, not the library under test. The value is
+/// captured before and after the write so the assertion cannot lose to a minute
+/// boundary, and the UTC cross-check only runs when the host is not on UTC.
+#[test]
+fn test_log_timestamps_are_local_time() {
+    let _g = CONFIG_LOCK.lock().unwrap();
+    let tmp = tempfile::TempDir::new().unwrap();
+    let restore = isolate_env(tmp.path());
+    let cfg = Config::default();
+
+    let shell_date = |args: &[&str]| {
+        std::process::Command::new("date")
+            .args(args)
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
+            .unwrap_or_default()
+    };
+
+    let before = shell_date(&["+%Y-%m-%d %H:%M"]);
+    let day_before = shell_date(&["+%d/%m/%Y"]);
+    log_write(&cfg, Level::Info, "Test", "stamp probe", false);
+    write_activity("Test", "stamp probe");
+    let after = shell_date(&["+%Y-%m-%d %H:%M"]);
+    let day_after = shell_date(&["+%d/%m/%Y"]);
+
+    let debug = std::fs::read_to_string(tmp.path().join("debug.log"))
+        .expect("log_write must create debug.log");
+    let stamp = debug.get(1..17).unwrap_or_default();
+    assert!(
+        stamp == before || stamp == after,
+        "debug.log stamp {stamp:?} is not the local clock (window {before} → {after})"
+    );
+
+    let utc = shell_date(&["-u", "+%Y-%m-%d %H:%M"]);
+    if before != utc {
+        assert_ne!(
+            stamp,
+            utc.as_str(),
+            "debug.log is stamped in UTC ({utc}) while the host is on {before}"
+        );
+    }
+
+    let activity = std::fs::read_to_string(tmp.path().join("activity.log"))
+        .expect("write_activity must create activity.log");
+    let act_day = activity.get(0..10).unwrap_or_default();
+    assert!(
+        act_day == day_before || act_day == day_after,
+        "activity.log day {act_day:?} is not the local date (window {day_before} → {day_after})"
+    );
+
+    restore();
 }

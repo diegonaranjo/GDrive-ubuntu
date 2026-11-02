@@ -77,6 +77,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ),
                 true,
             );
+            // A duplicate is the intended singleton outcome, not a fault: exit 0
+            // so systemd's `Restart=on-failure` does not relaunch it forever while
+            // the real owner is serving.
+            if matches!(e, zbus::Error::NameTaken) {
+                return Ok(());
+            }
             return Err(e.into());
         }
     };

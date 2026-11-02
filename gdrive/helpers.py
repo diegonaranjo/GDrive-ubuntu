@@ -9,10 +9,10 @@ from pathlib import Path
 
 import gi
 gi.require_version("Gio", "2.0")
-from gi.repository import Gio
+from gi.repository import Gio, GLib
 
 from .config import LOG_DIR
-from .constants import RCLONE_REMOTE
+from .constants import DAEMON_ID, RCLONE_REMOTE
 
 LOG_LEVELS = {"error": 0, "info": 1, "debug": 2, "trace": 3}
 
@@ -323,6 +323,57 @@ def _project_root():
     helpers.py sits at <root>/gdrive/, so we go up one level.
     """
     return Path(__file__).resolve().parent.parent
+
+
+DAEMON_UNIT = "gdrive-daemon.service"
+
+
+def has_daemon_service():
+    """True when setup.sh installed the supervised user unit for the daemon."""
+    try:
+        return subprocess.run(
+            ["systemctl", "--user", "cat", DAEMON_UNIT],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5,
+        ).returncode == 0
+    except Exception:
+        return False
+
+
+def daemon_name_owned():
+    """True when some process already owns the daemon's D-Bus name."""
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        res = bus.call_sync(
+            "org.freedesktop.DBus", "/org/freedesktop/DBus",
+            "org.freedesktop.DBus", "NameHasOwner",
+            GLib.Variant("(s)", (DAEMON_ID,)), None,
+            Gio.DBusCallFlags.NONE, 2000, None,
+        )
+        return bool(res.unpack()[0])
+    except Exception:
+        return False
+
+
+def start_daemon_service(wait=5.0):
+    """Starts the daemon through its user service and waits for the D-Bus name.
+
+    This is the path the UI prefers: systemd supervises the engine, so a crash
+    is restarted without the tray or window having to spawn a copy that nobody
+    would bring back.
+    """
+    try:
+        subprocess.run(
+            ["systemctl", "--user", "start", DAEMON_UNIT],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15,
+        )
+    except Exception:
+        return False
+    deadline = time.monotonic() + wait
+    while time.monotonic() < deadline:
+        if daemon_name_owned():
+            return True
+        time.sleep(0.2)
+    return False
 
 
 def toggle_autostart(enable):

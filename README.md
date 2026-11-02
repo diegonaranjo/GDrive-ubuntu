@@ -115,13 +115,18 @@ rclone config
 bash ~/GDrive/launch.sh
 ```
 
-Optional — start the tray icon at login:
+Optional — start the sync engine and the tray icon at login:
 
 ```bash
-systemctl --user enable --now gdrive-tray.service
+systemctl --user enable --now gdrive-daemon.service gdrive-tray.service
 ```
 
-> `setup.sh` runs **without sudo** and only touches your `~/.local`, `~/.config`, and the user-scoped systemd service. No root privileges required.
+`gdrive-daemon.service` supervises the Rust engine (`Restart=on-failure`), so a
+crashed sync engine comes back on its own and `rclone` children stay inside the
+unit's cgroup. When the unit is installed, `launch.sh` and the UI start the
+engine through it instead of spawning an unsupervised copy of the binary.
+
+> `setup.sh` runs **without sudo** and only touches your `~/.local`, `~/.config`, and the user-scoped systemd services. No root privileges required.
 
 ---
 
@@ -176,15 +181,23 @@ Click the Google Drive icon in the system tray to open the iconified menu: sync,
 # Run the app directly
 python3 gdrive-app.py
 
-# Restart the tray icon
+# Restart the sync engine / the tray icon
+systemctl --user restart gdrive-daemon.service
 systemctl --user restart gdrive-tray.service
 
 # Tail the logs
 tail -f ~/.config/gdrive/debug.log
 
-# Manual sync from the terminal
-rclone bisync gdrive:/ ~/GoogleDrive --resync
+# Manual sync from the terminal (same policy as the app: newest file wins)
+rclone bisync gdrive:/ ~/GoogleDrive --conflict-resolve newer --resilient
+
+# First baseline only, when you accept local and remote becoming identical
+rclone bisync gdrive:/ ~/GoogleDrive --resync --resync-mode newer
 ```
+
+> Plain `--resync` means `--resync-mode path1`, i.e. **the remote wins** and
+> newer local files are replaced. Keep `--resync-mode newer` with it, or leave
+> the flag out and let `bisync` resolve by mtime.
 
 ---
 
@@ -250,7 +263,7 @@ If you want to significantly increase the transfer and listing speeds in this cl
    - Run `rclone config` in your terminal, edit your `gdrive` remote, and insert your custom Client ID and Secret.
 2. **Increase Transfer Threads**:
    By default, the application is configured to use **8 concurrent transfer threads** (configurable in the *Sync* page). For connection speeds above 100 Mbps, this helps saturate the link when syncing many small files (like PDFs or text documents), offsetting the per-file latency.
-3. **Be Patient with the Initial Sync (`--resync`)**:
+3. **Be Patient with the First Baseline**:
    The first sync ever performed is always the slowest because the entire remote and local file catalogs must be listed, hashed, and indexed. Once the initial database is built, subsequent automatic syncs are nearly instant (taking only seconds) as they only verify the delta changes.
 
 ---

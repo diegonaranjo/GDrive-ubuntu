@@ -24,7 +24,7 @@ warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 # ── 1. Check dependencies ───────────────────────────────────────────────────
 check_dep() {
     if ! command -v "$1" >/dev/null 2>&1 && ! python3 -c "import gi; gi.require_version('$2','$3')" 2>/dev/null; then
-        warn "Falta dependencia: $1 (gi $2 $3). Instálala antes de continuar."
+        warn "Missing dependency: $1 (gi $2 $3). Install it before continuing."
     fi
 }
 
@@ -38,7 +38,7 @@ python3 -c "import gi; gi.require_version('AyatanaAppIndicator3','0.1')" 2>/dev/
 
 # ── 2. Icons ────────────────────────────────────────────────────────────────
 ICONS_DIR="$HOME/.local/share/icons/hicolor/scalable"
-log "Instalando iconos en $ICONS_DIR ..."
+log "Installing icons in $ICONS_DIR ..."
 mkdir -p "$ICONS_DIR"/{actions,places,status,mimetypes,categories}
 
 # Main icon in places (for the .desktop and the tray)
@@ -52,10 +52,10 @@ if [ -d "$PROJECT_DIR/icons/lucide" ]; then
     find "$PROJECT_DIR/icons/lucide" -name '*.svg' -exec cp -f {} "$ICONS_DIR/actions/" \; 2>/dev/null || true
 fi
 gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
-log "Iconos instalados"
+log "Icons installed"
 
 # ── 2b. Native daemon (Rust) ────────────────────────────────────────────────
-log "Instalando daemon nativo (gdrive-daemon)..."
+log "Installing daemon (gdrive-daemon)..."
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
 DAEMON_SRC=""
@@ -68,25 +68,51 @@ done
 if [ -n "$DAEMON_SRC" ]; then
     cp -f "$DAEMON_SRC" "$BIN_DIR/gdrive-daemon"
     chmod +x "$BIN_DIR/gdrive-daemon"
-    log "Daemon instalado en $BIN_DIR/gdrive-daemon"
+    log "Daemon installed at $BIN_DIR/gdrive-daemon"
 else
-    warn "Binario gdrive-daemon no encontrado. Compílalo con:"
+    warn "gdrive-daemon binary not found. Build it with:"
     warn "  cd native/gdrive-core && cargo build --release"
-    warn "  ./setup.sh   (re-ejecuta después)"
+    warn "  ./setup.sh   (then run it again)"
 fi
 
 # ── 3. Nautilus extension ───────────────────────────────────────────────────
 NAUT_EXT_DIR="$HOME/.local/share/nautilus-python/extensions"
 if [ -d "$PROJECT_DIR/nautilus-extension" ]; then
-    log "Instalando extensión Nautilus en $NAUT_EXT_DIR ..."
+    log "Installing Nautilus extension in $NAUT_EXT_DIR ..."
     mkdir -p "$NAUT_EXT_DIR"
     cp -f "$PROJECT_DIR/nautilus-extension/goa_drive.py" "$NAUT_EXT_DIR/"
 fi
 
-# ── 4. User systemd service (tray) ──────────────────────────────────────────
+# ── 4. User systemd services (daemon + tray) ────────────────────────────────
 SYSTEMD_DIR="$HOME/.config/systemd/user"
-log "Instalando servicio systemd en $SYSTEMD_DIR ..."
+log "Installing systemd user services in $SYSTEMD_DIR ..."
 mkdir -p "$SYSTEMD_DIR"
+
+# The sync engine is supervised so a crash restarts it on its own. launch.sh and
+# the UI's _ensure_daemon() look for this unit and start it instead of spawning
+# an unsupervised copy of themselves.
+DAEMON_EXEC="$BIN_DIR/gdrive-daemon"
+[ -x "$DAEMON_EXEC" ] || DAEMON_EXEC="$DAEMON_SRC"
+if [ -n "$DAEMON_EXEC" ] && [ -x "$DAEMON_EXEC" ]; then
+    cat > "$SYSTEMD_DIR/gdrive-daemon.service" <<EOF
+[Unit]
+Description=GDrive native daemon (rclone sync engine)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=$DAEMON_EXEC
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
+EOF
+    log "Installed gdrive-daemon.service (ExecStart=$DAEMON_EXEC)"
+else
+    warn "No daemon binary found: gdrive-daemon.service was not installed."
+fi
+
 cat > "$SYSTEMD_DIR/gdrive-tray.service" <<EOF
 [Unit]
 Description=GDrive Tray Icon
@@ -101,18 +127,19 @@ RestartSec=5
 WantedBy=default.target
 EOF
 systemctl --user daemon-reload
-log "Servicio instalado. Habilítalo con: systemctl --user enable --now gdrive-tray.service"
+log "Enable them with: systemctl --user enable --now gdrive-daemon.service gdrive-tray.service"
 
 # ── 5. .desktop launcher ────────────────────────────────────────────────────
 APPS_DIR="$HOME/.local/share/applications"
-log "Instalando lanzador en $APPS_DIR ..."
+log "Installing launcher in $APPS_DIR ..."
 mkdir -p "$APPS_DIR"
 cat > "$APPS_DIR/gdrive.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=Google Drive
-Comment=Cliente de escritorio para Google Drive
+Comment=Google Drive desktop client
+Comment[es]=Cliente de escritorio para Google Drive
 Exec=bash $PROJECT_DIR/launch.sh
 Icon=google-drive
 Terminal=false
@@ -125,20 +152,20 @@ update-desktop-database "$APPS_DIR" 2>/dev/null || true
 # ── 6. Configure rclone (interactive) ───────────────────────────────────────
 if command -v rclone >/dev/null 2>&1; then
     if ! rclone listremotes 2>/dev/null | grep -qx "gdrive:"; then
-        warn "No se encontró el remote 'gdrive:' en rclone."
-        warn "Para configurarlo ejecuta:  rclone config"
-        warn "(Crea un remote llamado 'gdrive', tipo 'drive', y autoriza tu cuenta.)"
+        warn "rclone remote 'gdrive:' was not found."
+        warn "To configure it run:  rclone config"
+        warn "(Create a remote named 'gdrive', type 'drive', and authorize your account.)"
     else
-        log "Remote 'gdrive:' ya configurado."
+        log "Remote 'gdrive:' already configured."
     fi
 fi
 
 echo
-log "Setup completado."
+log "Setup complete."
 echo
-echo "  Carpeta de sync por defecto: \$HOME/GoogleDrive"
-echo "  Configuración:               ~/.config/gdrive/settings.json"
+echo "  Default sync folder:  \$HOME/GoogleDrive"
+echo "  Configuration:        ~/.config/gdrive/settings.json"
 echo
-echo "  Lanzar la app ahora:         bash $PROJECT_DIR/launch.sh"
-echo "  Iniciar el tray al login:    systemctl --user enable --now gdrive-tray.service"
+echo "  Start the app now:    bash $PROJECT_DIR/launch.sh"
+echo "  Start on login:       systemctl --user enable --now gdrive-daemon.service gdrive-tray.service"
 echo

@@ -6,7 +6,8 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
+
+use chrono::Local;
 
 use crate::config::{config_home, Config};
 
@@ -127,41 +128,17 @@ fn log_dir() -> PathBuf {
     config_home()
 }
 
+/// `%Y-%m-%d %H:%M:%S` in the machine's local time, matching what the Python
+/// side writes (`time.strftime`, also local) and the timestamps rclone prints
+/// in the lines this file embeds. Deriving it from `SystemTime` alone yields
+/// UTC, which put this log three hours ahead of the rest on a UTC-3 host.
 fn timestamp_log() -> String {
-    // `%Y-%m-%d %H:%M:%S` without a chrono dependency.
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    let days = secs / 86_400;
-    let rem = secs % 86_400;
-    let (h, mi, s) = (rem / 3600, (rem % 3600) / 60, rem % 60);
-
-    // Civil-date conversion of days since epoch (Howard Hinnant's algorithm).
-    let z = days as i64 + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-
-    format!("{y:04}-{m:02}-{d:02} {h:02}:{mi:02}:{s:02}")
+    Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
 fn timestamp_activity() -> String {
-    let t = timestamp_log();
-    // Convert "yyyy-mm-dd HH:MM:SS" → "dd/mm/yyyy HH:MM:SS".
-    let (date, time) = t.split_once(' ').unwrap_or(("", ""));
-    let mut p = date.split('-');
-    let (y, m, d) = (
-        p.next().unwrap_or(""),
-        p.next().unwrap_or(""),
-        p.next().unwrap_or(""),
-    );
-    format!("{d}/{m}/{y} {time}")
+    // `%d/%m/%Y %H:%M:%S` — the flat layout activity.log has always used.
+    Local::now().format("%d/%m/%Y %H:%M:%S").to_string()
 }
 
 fn level_name(l: Level) -> &'static str {
