@@ -374,9 +374,12 @@ cargo check --all-targets --locked
 
 ### CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
-Rust `fmt` + `clippy -D warnings` + tests + release build for `gdrive-core`, and
-Python syntax verification.
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR: an
+identity & secret guard over the pushed commits (`tools/secret-scan.sh`), Rust
+`fmt` + `clippy -D warnings` + tests + release build for `gdrive-core`, and
+Python syntax verification. The same guard runs locally on commit and push once
+`setup.sh` has installed the hooks — a pushed commit cannot be taken back, so
+the check belongs before the push.
 
 ### Contributing
 

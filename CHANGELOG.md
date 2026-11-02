@@ -6,6 +6,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`tools/secret-scan.sh`**, an identity and secret guard that runs on every
+  commit (`tools/githooks/pre-commit`), every push (`pre-push`) and in CI (the
+  new `guard` job). Pushed commits are permanent — after a ref rewrite GitHub
+  still serves the old objects by SHA on the commit API and the tarball
+  endpoint — so the check belongs before the push, not after it. It refuses: an
+  address listed in the untracked `.git/git-guard.deny` (seeded by `setup.sh`
+  from the machine's global `user.email` when that is not a noreply address),
+  any non-noreply signing identity when the clone sets
+  `gitguard.strict-identity=true`, secret shapes in the diff (private keys,
+  `ghp_`/`github_pat_`/`AKIA`/`xox*`, non-empty `access_token`/`refresh_token`/
+  `client_secret`, `Authorization:` headers, `user:pass@host` URLs), absolute
+  paths belonging to the machine running it, and file names such as `.env`,
+  `*.pem`, `rclone.conf` or `credentials*`. `setup.sh` installs the hooks
+  through `core.hooksPath`.
+- The policy is deliberately asymmetric: an ordinary contributor identity gets a
+  note, not a refusal, so the guard cannot be used to bully a pull request. The
+  maintainer's clone is the one that gets strict signing, and the rule is
+  enforced where it belongs — `~/.gitconfig` `includeIf` per path — so a *new*
+  clone cannot reintroduce the mistake.
+- The guard stores no personal identifier: the path rules are derived at run
+  time from `$HOME`/`$USER` and the identity list lives in untracked files, so
+  the tool meant to stop a leak cannot itself become one.
+
 ### Fixed
 
 - The bug-report template asked for `journalctl --user -u gdrive-tray.service`

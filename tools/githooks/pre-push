@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#
+# Refuses a push that would publish commits with a personal identity, secret
+# shapes or machine-specific paths. Installed by setup.sh through
+# `git config core.hooksPath tools/githooks`.
+#
+# git passes one line per ref on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"
+scan="$root/tools/secret-scan.sh"
+rc=0
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+	# Deleting a branch arrives with an all-zero local sha: nothing to scan.
+	[[ "$local_sha" =~ ^0+$ ]] && continue
+	if [[ "$remote_sha" =~ ^0+$ ]]; then
+		# New branch: scan what the remote does not have yet.
+		base="$(git merge-base --all origin/main "$local_sha" 2>/dev/null | head -1)"
+		if [[ -n "$base" ]]; then
+			revs="$base..$local_sha"
+		else
+			revs="$local_sha"
+		fi
+	else
+		revs="$remote_sha..$local_sha"
+	fi
+	"$scan" range "$revs" || rc=1
+done
+
+exit "$rc"

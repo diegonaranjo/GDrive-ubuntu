@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#
+# Refuses a commit whose identity or content would publish something personal.
+# Installed by setup.sh through `git config core.hooksPath tools/githooks`.
+
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"
+exec "$root/tools/secret-scan.sh" staged

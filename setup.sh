@@ -5,7 +5,8 @@
 # Run after cloning the repository. NO sudo. It installs:
 #   - Icons (google-drive + Lucide) into ~/.local/share/icons
 #   - Nautilus extension into ~/.local/share/nautilus-python/extensions
-#   - User systemd service gdrive-tray.service
+#   - User systemd services gdrive-daemon.service and gdrive-tray.service
+#   - commit/push guards through core.hooksPath (tools/githooks)
 #   - .desktop launcher for the applications menu (with this clone's real path)
 #
 # Usage:
@@ -130,7 +131,36 @@ EOF
 systemctl --user daemon-reload
 log "Enable them with: systemctl --user enable --now gdrive-daemon.service gdrive-tray.service"
 
-# ── 5. .desktop launcher ────────────────────────────────────────────────────
+# ── 5. Git hooks: identity and secret guard ─────────────────────────────────
+if git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+    log "Installing commit/push guards (core.hooksPath -> tools/githooks) ..."
+    chmod +x "$PROJECT_DIR/tools/secret-scan.sh" "$PROJECT_DIR"/tools/githooks/* 2>/dev/null || true
+    git -C "$PROJECT_DIR" config core.hooksPath tools/githooks
+    GD="$(git -C "$PROJECT_DIR" rev-parse --absolute-git-dir)"
+    # Keep the policy files untracked and invisible to `git add -A`.
+    touch "$GD/info/exclude"
+    grep -qxF 'git-guard.*' "$GD/info/exclude" 2>/dev/null || echo 'git-guard.*' >> "$GD/info/exclude"
+    GLOBAL_EMAIL="$(git config --global user.email || true)"
+    LOCAL_EMAIL="$(git -C "$PROJECT_DIR" config user.email || true)"
+    if [ -z "$GLOBAL_EMAIL" ]; then
+        warn "No global git identity on this machine; nothing to block, but a new clone will inherit whatever is set later."
+    elif printf '%s' "$GLOBAL_EMAIL" | grep -qE '@users\.noreply\.github\.com$'; then
+        log "Global identity is already a noreply address: no deny entry needed."
+    elif ! grep -qxF "$GLOBAL_EMAIL" "$GD/git-guard.deny" 2>/dev/null; then
+        printf '%s\n' "$GLOBAL_EMAIL" >> "$GD/git-guard.deny"
+        log "Refusing commits signed with this machine's global identity: $GLOBAL_EMAIL"
+    else
+        log "Deny entry already present for the global identity."
+    fi
+    if printf '%s' "${LOCAL_EMAIL:-}" | grep -qE '@users\.noreply\.github\.com$'; then
+        git -C "$PROJECT_DIR" config gitguard.strict-identity true
+        log "Maintainer clone: every commit must be signed with a noreply address."
+    fi
+else
+    warn "Not a git clone: the commit/push guards were not installed."
+fi
+
+# ── 6. .desktop launcher ────────────────────────────────────────────────────
 APPS_DIR="$HOME/.local/share/applications"
 log "Installing launcher in $APPS_DIR ..."
 mkdir -p "$APPS_DIR"
@@ -150,7 +180,7 @@ Keywords=Google;Drive;Cloud;Sync;
 EOF
 update-desktop-database "$APPS_DIR" 2>/dev/null || true
 
-# ── 6. Configure rclone (interactive) ───────────────────────────────────────
+# ── 7. Configure rclone (interactive) ───────────────────────────────────────
 if command -v rclone >/dev/null 2>&1; then
     if ! rclone listremotes 2>/dev/null | grep -qx "gdrive:"; then
         warn "rclone remote 'gdrive:' was not found."

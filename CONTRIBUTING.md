@@ -129,6 +129,49 @@ fix(sync): derive bisync prefix from sync_dir instead of hardcoding it
 tests(core): add run_with_callback progress contract
 ```
 
+### Commit identity and the guard
+
+A pushed commit is effectively permanent. Rewriting refs on GitHub does not
+remove the objects: they keep answering over the API and the tarball endpoint
+until the whole repository is deleted, which is the only "undo" and costs the
+history. So the project refuses personal or client identities *before* a push.
+
+`setup.sh` sets `core.hooksPath = tools/githooks`, and `tools/secret-scan.sh`
+runs on every commit and every push. It refuses:
+
+- a signing identity listed in `.git/git-guard.deny` — untracked, seeded from
+  your global `user.email` when that is not a noreply address;
+- in the maintainer's clone (`gitguard.strict-identity=true`), any identity that
+  is not `<name>@users.noreply.github.com`;
+- secret shapes in the diff: private-key headers, `ghp_` / `github_pat_` /
+  `AKIA` / `xox*` tokens, non-empty `access_token` / `refresh_token` /
+  `client_secret`, `Authorization: Bearer|Basic`, and `user:pass@host` URLs;
+- absolute paths that belong to the machine running the check (derived at run
+  time from `$HOME` and `$USER`, so the rule never stores anyone's identity);
+- file names that must not be tracked: `.env`, `*.pem`, `*.key`, `*.p12`,
+  `id_rsa*`, `rclone.conf`, `credentials*`, `.netrc`, keyrings.
+
+Give the clone an explicit identity:
+
+```bash
+git config user.email "you@users.noreply.github.com"
+```
+
+and make every future clone of that path inherit it, which is the part that
+actually prevents the mistake from coming back:
+
+```ini
+; ~/.gitconfig
+[includeIf "gitdir:~/proyectos/GDrive/"]
+  [user]
+    email = you@users.noreply.github.com
+```
+
+Ordinary contributor identities are not refused, only noted; allow one
+explicitly by adding it to `.git/git-guard.local`. `git push --no-verify`
+skips the local hooks, but the CI guard still scans the pushed diff — and what
+gets through is still yours to explain, because it cannot be taken back.
+
 ## Testing
 
 - Rust: `cargo test` in `native/gdrive-core/`. Add a test for every bug fix and
@@ -141,6 +184,7 @@ tests(core): add run_with_callback progress contract
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull
 request:
 
+- Identity & secret guard: `tools/secret-scan.sh range` over the pushed commits.
 - Rust: `cargo fmt --check`, `cargo clippy --all-targets --all-features
   --locked -- -D warnings`, `cargo test`, `cargo build --release`.
 - Python: syntax compilation of the UI package.

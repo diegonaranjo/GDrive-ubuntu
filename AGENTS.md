@@ -223,6 +223,30 @@ and `systemctl --user daemon-reload` afterwards.
 
 ---
 
+## Publication guard
+
+Pushed commits cannot be taken back: after a ref rewrite GitHub still serves
+the old objects by SHA (commit API and tarball) until the repository itself is
+deleted. This project therefore blocks identities and secrets locally, before
+the push.
+
+- `tools/secret-scan.sh` is the single implementation, run as `staged` by
+  `tools/githooks/pre-commit`, as `range <A..B>` by `tools/githooks/pre-push`
+  and by the CI `guard` job. `setup.sh` installs the hooks with
+  `core.hooksPath` and adds `git-guard.*` to `.git/info/exclude`.
+- Identity policy is asymmetric on purpose so contributors are not blocked:
+  `.git/git-guard.deny` (untracked, seeded from the machine's global
+  `user.email`) refuses that address; `git config gitguard.strict-identity true`
+  (set by `setup.sh` when the clone already signs noreply) requires
+  `@users.noreply.github.com` for every commit; anything else only prints a note.
+  `.git/git-guard.local` allows additional addresses.
+- Content rules are derived at run time (`$HOME`, `$USER`, `id -un`) and the
+  patterns are generic, so the guard never writes a personal identifier into
+  the repository. Test a change to it against known-bad commits before
+  trusting it: detection without a non-zero exit is worthless (a pipeline put
+  `scan_stream` in a subshell once and the script reported findings while
+  passing).
+
 ## Known issues
 
 - **Nautilus crash from dual-loading libpython3.14**: having a custom Python in

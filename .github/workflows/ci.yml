@@ -9,6 +9,33 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  guard:
+    name: Identity & secret guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan the pushed commits
+        env:
+          BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "${PR_BASE:-}" ] && [ -n "${PR_HEAD:-}" ]; then
+            range="$PR_BASE..$PR_HEAD"
+          elif [ -n "${BEFORE:-}" ] && ! printf '%s' "$BEFORE" | grep -q '^0*$'; then
+            range="$BEFORE..$SHA"
+          else
+            range="$SHA"
+          fi
+          echo "scanning $range"
+          chmod +x tools/secret-scan.sh
+          ./tools/secret-scan.sh range "$range"
+
   rust:
     name: Rust (fmt + clippy + test + build)
     runs-on: ubuntu-latest
