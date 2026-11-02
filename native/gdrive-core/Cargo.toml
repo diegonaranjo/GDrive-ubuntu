@@ -1,6 +1,6 @@
 [package]
 name = "gdrive-core"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 description = "GDrive core: config, sync (rclone bisync), logging and i18n. Native engine for the desktop client."
 license = "MIT"

@@ -7,7 +7,7 @@ pub const APP_ID: &str = "com.gdrive.Client";
 /// Human-readable application name.
 pub const APP_NAME: &str = "Google Drive";
 /// Semantic version of the application.
-pub const APP_VERSION: &str = "1.1.0";
+pub const APP_VERSION: &str = "1.2.0";
 
 /// rclone remote. Honors the `GDRIVE_REMOTE` environment variable like the
 /// original Python, for compatibility.

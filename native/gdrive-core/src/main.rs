@@ -26,7 +26,7 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             }
             None => {
-                eprintln!("no se pudo obtener información de almacenamiento");
+                eprintln!("could not read storage information");
                 ExitCode::FAILURE
             }
         },
@@ -40,7 +40,7 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             }
             None => {
-                eprintln!("no se pudo obtener el email");
+                eprintln!("could not read the account email");
                 ExitCode::FAILURE
             }
         },
@@ -50,8 +50,8 @@ fn main() -> ExitCode {
         }
         _ => {
             eprintln!(
-                "uso: gdrive-core <about|authorized|email|version>\n\
-                 versión: {}",
+                "usage: gdrive-core <about|authorized|email|version>\n\
+                 version: {}",
                 gdrive_core::APP_VERSION
             );
             ExitCode::FAILURE

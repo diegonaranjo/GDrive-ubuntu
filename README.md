@@ -323,7 +323,7 @@ GDrive/
 
 ## Versioning
 
-- **Version**: 1.1.0
+- **Version**: 1.2.0
 - **Compatibility**: Ubuntu 22.04 LTS+
 - **License**: see the [LICENSE](LICENSE) file
 

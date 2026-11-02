@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.2.0] - 2026-11-02
+
 ### Added
 
 - **`gdrive-daemon.service`**, a supervised user service for the sync engine,
@@ -28,6 +32,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.desktop` entries now ship an English `Comment=` plus a `Comment[es]`
   variant, so the desktop shell localizes them instead of always showing
   Spanish.
+- The `gdrive-core` CLI (`about|authorized|email|version`) now prints its usage
+  and failure lines in English, as does the one panic message in the daemon.
+  These are terminal/panic text, never rendered in the window. Text that *does*
+  reach the UI (`#[error(...)]` bodies, daemon log lines, the Nautilus menu) is
+  still Spanish-only and is tracked in [#1](https://github.com/diegonaranjo/GDrive-ubuntu/issues/1).
+- Version 1.2.0, with `DEBIAN/control` as the single source: `Makefile`,
+  `build-deb.sh` and `show-structure.sh` read it, and `APP_VERSION`
+  (Python), `gdrive-core` (Rust) and the installer banner match it, so the
+  About page, `gdrive-core version`, `GetStatus` and the `.deb` all agree.
 
 ### Fixed
 
@@ -76,6 +89,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and nothing substitutes that placeholder, so that launcher cannot work from
   the `.deb`. The file now documents this instead of claiming `setup.sh` fills
   it in; repairing it means deciding where the package installs the app.
+  Tracked with the rest of the packaging gap in
+  [#2](https://github.com/diegonaranjo/GDrive-ubuntu/issues/2) — no `.deb` is
+  published in any release, so this is latent rather than shipped.
 
 ## [1.1.0] - 2026-10-30
 

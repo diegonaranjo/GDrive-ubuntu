@@ -341,7 +341,7 @@ UNINSTALLEOF
 main() {
     echo "=========================================="
     echo "  Google Drive Client for Ubuntu"
-    echo "  Version 1.1.0"
+    echo "  Version 1.2.0"
     echo "=========================================="
     echo
     

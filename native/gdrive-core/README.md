@@ -72,7 +72,7 @@ cargo build --release      # produces target/release/gdrive-daemon
 Smoke-test CLI:
 
 ```bash
-gdrive-core version        # 1.1.0
+gdrive-core version        # 1.2.0
 gdrive-core authorized     # true/false (valid token)
 gdrive-core email          # email of the connected account
 gdrive-core about          # storage JSON

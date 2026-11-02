@@ -11,7 +11,7 @@ DAEMON_INTERFACE = "com.gdrive.Daemon1"
 
 APP_ID = "com.gdrive.ClientUI"
 APP_NAME = "Google Drive"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 RCLONE_REMOTE = os.environ.get("GDRIVE_REMOTE", "gdrive:")
 SYNC_DIR_DEFAULT = str(Path.home() / "GoogleDrive")

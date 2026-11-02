@@ -596,7 +596,7 @@ pub fn service_details() -> (&'static str, &'static str) {
 /// `try_from(...).unwrap()` at each signal-emission point).
 fn daemon_object_path() -> zbus::zvariant::ObjectPath<'static> {
     use zbus::zvariant::ObjectPath;
-    ObjectPath::try_from("/com/gdrive/Client").expect("path D-Bus estático válido")
+    ObjectPath::try_from("/com/gdrive/Client").expect("static D-Bus path must be valid")
 }
 
 /// Starts the periodic sync scheduler in the background.
