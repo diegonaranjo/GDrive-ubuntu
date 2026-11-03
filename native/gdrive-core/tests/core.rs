@@ -876,3 +876,109 @@ fn test_activity_log_rotates_at_the_size_cap() {
 
     restore();
 }
+
+/// Installs a fake `rclone` on PATH answering per subcommand, and returns the
+/// temp dir plus the previous PATH so the caller can restore both.
+fn fake_rclone(
+    listremotes: &str,
+    about: &str,
+    config_show: &str,
+    fail_about: bool,
+) -> (tempfile::TempDir, std::ffi::OsString) {
+    let tmp = tempfile::tempdir().unwrap();
+    let bin = tmp.path().join("rclone");
+    let script = format!(
+        r#"#!/bin/sh
+case "$1" in
+  listremotes) printf '%s' '{}' ;;
+  about) printf '%s' '{}'{} ;;
+  config) printf '%s' '{}' ;;
+  *) : ;;
+esac
+"#,
+        listremotes.replace('\'', "'\\''"),
+        about.replace('\'', "'\\''"),
+        if fail_about { "; exit 3" } else { "" },
+        config_show.replace('\'', "'\\''"),
+    );
+    std::fs::write(&bin, script).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let prev_path = std::env::var_os("PATH").unwrap_or_default();
+    std::env::set_var(
+        "PATH",
+        format!("{}:{}", tmp.path().display(), prev_path.to_string_lossy()),
+    );
+    (tmp, prev_path)
+}
+
+/// Regression for the rclone wrappers: `run()` left stdout inherited and called
+/// `wait_with_output()` after `try_wait()` had already reaped the child, so
+/// every wrapper returned an error (`gdrive-core authorized` said false while
+/// the real `rclone about` answered fine) and `gdrive-core email` dumped the raw
+/// remote config to the terminal. There was no test over these wrappers.
+#[test]
+fn test_rclone_wrappers_capture_stdout() {
+    let _g = config_guard();
+    let cache = tempfile::TempDir::new().unwrap();
+    let restore = isolate_env(cache.path());
+    let (tmp, prev_path) = fake_rclone(
+        "minio:\ngdrive:\n",
+        "{\"total\":2199023255552,\"used\":45675823741}\n",
+        "[gdrive]\ntype = drive\nuser = account@example.com\n",
+        false,
+    );
+
+    assert!(
+        gdrive_core::rclone::rclone_remote_exists(None),
+        "listremotes output must be captured and matched"
+    );
+    let about =
+        gdrive_core::rclone::rclone_about().expect("rclone_about must parse the JSON stdout");
+    assert_eq!(about["total"].as_u64(), Some(2_199_023_255_552));
+    assert_eq!(
+        gdrive_core::rclone::rclone_user_email().as_deref(),
+        Some("account@example.com"),
+        "config show output must be captured, not printed to our terminal"
+    );
+    assert!(
+        gdrive_core::rclone::rclone_is_authorized(),
+        "a remote that exists and answers about is authorized"
+    );
+
+    std::env::set_var("PATH", prev_path);
+    drop(tmp);
+    restore();
+}
+
+/// A failing rclone must not be reported as authorized, and the error must
+/// carry rclone's own stderr rather than swallowing it.
+#[test]
+fn test_rclone_wrappers_report_failure() {
+    let _g = config_guard();
+    let cache = tempfile::TempDir::new().unwrap();
+    let restore = isolate_env(cache.path());
+    let (tmp, prev_path) = fake_rclone(
+        "gdrive:\n",
+        "",
+        "",
+        true, // `about` exits 3
+    );
+
+    assert!(gdrive_core::rclone::rclone_remote_exists(None));
+    assert!(
+        gdrive_core::rclone::rclone_about().is_none(),
+        "a non-zero exit must not be parsed as storage info"
+    );
+    assert!(
+        !gdrive_core::rclone::rclone_is_authorized(),
+        "a remote whose about fails is not authorized"
+    );
+
+    std::env::set_var("PATH", prev_path);
+    drop(tmp);
+    restore();
+}

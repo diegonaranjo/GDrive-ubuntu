@@ -50,6 +50,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Every Rust rclone wrapper was broken, and leaked output.** `run()` left the
+  child's stdout inherited and then called `wait_with_output()` after
+  `try_wait()` had already reaped the process; the second wait fails with
+  ECHILD, so each wrapper returned an error. `gdrive-core authorized` answered
+  `false` while the real `rclone about gdrive:` returned valid JSON, and
+  `gdrive-core email` dumped the raw remote config to the terminal. Both
+  streams are piped now, stdout is drained on a thread (a full 64 KB pipe
+  would block the child before it could exit), and a non-zero exit carries
+  rclone's stderr in the error. The CLI now reports `authorized → true` and
+  parses the storage JSON. Two new tests cover the wrappers — they had none,
+  which is how this survived — and both fail when the buggy body is put back.
 - **`activity.log` never rotated.** It had grown to 46 MB on a real install
   because the rotation policy (`log_rotate` / `log_max_size_mb` /
   `log_max_files`) was applied only to `debug.log`. Both logs now share one

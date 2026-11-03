@@ -4,7 +4,8 @@
 //! `rclone_is_authorized`, `rclone_lsd` and the stats parsing utilities from
 //! `gdrive/helpers.py` and the legacy `gdrive/sync.py` (removed in 1.1.0).
 
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
 
 use serde_json::Value;
 
@@ -28,6 +29,12 @@ pub fn rclone_remote_exists(remote: Option<&str>) -> bool {
 }
 
 /// Gets the email of the account connected to the remote, or `None`.
+///
+/// A Google Drive remote stores only `type, scope, token, team_drive`, and the
+/// token JSON carries no identity claim; `rclone backend user` is not a drive
+/// command. So `None` is the normal answer for Drive, not a failure — the
+/// Account page falls back to a generic label (`account.py::_apply`), and the
+/// CLI prints its own error line. Do not "fix" this by adding more rclone calls.
 pub fn rclone_user_email() -> Option<String> {
     let remote = rclone_remote();
 
@@ -91,28 +98,40 @@ fn run_ok(args: &[&str], timeout_secs: u64) -> Option<String> {
 }
 
 /// Runs `rclone` with a timeout (killing the process when it exceeds it).
+///
+/// Both streams are piped. Without that, rclone's output was inherited by our
+/// own stdout: `gdrive-core email` used to dump the raw remote config to the
+/// terminal, and nothing could be parsed.
+///
+/// stdout is drained on a thread while we poll for exit, for two reasons: a
+/// full pipe (64 KB) blocks the child before it can exit, and `wait_with_output`
+/// cannot be called after `try_wait` already reaped the process — the second
+/// wait fails with ECHILD, which made every call look like a failure.
 fn run(args: &[&str], timeout_secs: u64) -> Result<String, String> {
     let mut cmd = Command::new("rclone");
-    cmd.args(args);
+    cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(e) => return Err(format!("rclone no disponible: {e}")),
     };
+    let mut out_pipe = child.stdout.take().ok_or("no stdout pipe")?;
+    let mut err_pipe = child.stderr.take().ok_or("no stderr pipe")?;
+    let out_reader = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = out_pipe.read_to_string(&mut s);
+        s
+    });
+    let err_reader = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = err_pipe.read_to_string(&mut s);
+        s
+    });
 
     // Manual timeout via poll + kill (std::process has no portable timeout).
     let start = std::time::Instant::now();
-    loop {
+    let status = loop {
         match child.try_wait() {
-            Ok(Some(status)) => {
-                if status.success() {
-                    let out = child
-                        .wait_with_output()
-                        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-                        .map_err(|e| e.to_string())?;
-                    return Ok(out);
-                }
-                return Err(format!("rclone exit {status}"));
-            }
+            Ok(Some(status)) => break status,
             Ok(None) => {
                 if start.elapsed().as_secs() > timeout_secs {
                     let _ = child.kill();
@@ -123,7 +142,24 @@ fn run(args: &[&str], timeout_secs: u64) -> Result<String, String> {
             }
             Err(e) => return Err(e.to_string()),
         }
+    };
+    let stdout = out_reader.join().unwrap_or_default();
+    if status.success() {
+        return Ok(stdout);
     }
+    let stderr = err_reader.join().unwrap_or_default();
+    let detail: String = stderr
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(200)
+        .collect();
+    Err(if detail.is_empty() {
+        format!("rclone exit {status}")
+    } else {
+        format!("rclone exit {status}: {detail}")
+    })
 }
 
 /// Parses rclone's stats line and returns `(transferred, total)` in bytes.
