@@ -13,6 +13,13 @@ use gdrive_core::sync::{interval_seconds, SyncEngine};
 /// variable shared between tests running in parallel).
 static CONFIG_LOCK: Mutex<()> = Mutex::new(());
 
+/// Takes the lock and recovers from poisoning on purpose: a peer test that
+/// panicked leaves the environment intact, and letting the poison propagate
+/// turned one real failure into 14 that all blamed the wrong line.
+fn config_guard() -> std::sync::MutexGuard<'static, ()> {
+    CONFIG_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 #[test]
 fn test_config_defaults() {
     let c = Config::default();
@@ -34,7 +41,7 @@ fn test_config_defaults() {
 
 #[test]
 fn test_config_partial_json_merges_defaults() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     // JSON with a single field must be filled in from the remaining defaults.
     let dir = tempfile::TempDir::new().unwrap();
     let cfg_path = dir.path().join("settings.json");
@@ -51,7 +58,7 @@ fn test_config_partial_json_merges_defaults() {
 
 #[test]
 fn test_config_roundtrip() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let dir = tempfile::TempDir::new().unwrap();
     std::env::set_var("GDRIVE_CONFIG_DIR", dir.path());
     reset_config().unwrap();
@@ -318,7 +325,7 @@ fn isolate_env(dir: &std::path::Path) -> impl FnOnce() {
 /// and overwrites local changes. That was the original bug.
 #[test]
 fn test_bisync_prefix_matches_real_rclone_file_names() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     let eng = SyncEngine::new(Config {
@@ -336,7 +343,7 @@ fn test_bisync_prefix_matches_real_rclone_file_names() {
 /// rclone trims the leading `/` from the path and leaves no double separators.
 #[test]
 fn test_bisync_prefix_trims_separators_like_rclone() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     let with_slash = SyncEngine::new(Config {
@@ -372,7 +379,7 @@ fn test_bisync_prefix_changes_with_sync_dir() {
 /// An already seeded sync must **never** carry `--resync`.
 #[test]
 fn test_build_cmd_seeded_sync_never_uses_resync() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     write_bisync_list(tmp.path(), GOLDEN_PREFIX, "path1", 3);
@@ -395,7 +402,7 @@ fn test_build_cmd_seeded_sync_never_uses_resync() {
 /// an aborted run used to leave, and seeding is preferable to trusting it.
 #[test]
 fn test_build_cmd_header_only_listing_is_not_a_baseline() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     write_bisync_list(tmp.path(), GOLDEN_PREFIX, "path1", 0);
@@ -413,7 +420,7 @@ fn test_build_cmd_header_only_listing_is_not_a_baseline() {
 
 #[test]
 fn test_build_cmd_first_run_uses_resync() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     let c = Config {
@@ -437,7 +444,7 @@ fn test_build_cmd_first_run_uses_resync() {
 /// demanding a full resync again.
 #[test]
 fn test_build_cmd_recovers_without_forcing_resync() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     let (cmd, _) = SyncEngine::new(Config::default()).build_cmd();
@@ -455,7 +462,7 @@ fn test_build_cmd_recovers_without_forcing_resync() {
 /// while it exists and the daemon would stay blocked forever.
 #[test]
 fn test_clear_orphan_lock_removes_lock_of_dead_pid() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     let dir = tmp.path().join("rclone").join("bisync");
@@ -479,7 +486,7 @@ fn test_clear_orphan_lock_removes_lock_of_dead_pid() {
 /// An unreadable lock is NOT deleted blindly: it may belong to a live session.
 #[test]
 fn test_clear_orphan_lock_keeps_unreadable_lock() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     let dir = tmp.path().join("rclone").join("bisync");
@@ -629,7 +636,7 @@ fn test_constants() {
 
 #[test]
 fn test_run_with_callback_receives_progress() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     // Without isolation, log_write uses ~/.config/gdrive and the test writes
     // fake sync lines into the user's real log.
     let cache = tempfile::TempDir::new().unwrap();
@@ -691,7 +698,7 @@ echo 'Some other line' >&2\n";
 /// second pipe that was never read during the run.
 #[test]
 fn test_run_reports_failure_detail_from_stderr_lines() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::tempdir().unwrap();
     let restore = isolate_env(tmp.path());
     let bin = tmp.path().join("rclone");
@@ -741,7 +748,7 @@ fn test_run_reports_failure_detail_from_stderr_lines() {
 /// boundary, and the UTC cross-check only runs when the host is not on UTC.
 #[test]
 fn test_log_timestamps_are_local_time() {
-    let _g = CONFIG_LOCK.lock().unwrap();
+    let _g = config_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let restore = isolate_env(tmp.path());
     let cfg = Config::default();
@@ -757,7 +764,7 @@ fn test_log_timestamps_are_local_time() {
     let before = shell_date(&["+%Y-%m-%d %H:%M"]);
     let day_before = shell_date(&["+%d/%m/%Y"]);
     log_write(&cfg, Level::Info, "Test", "stamp probe", false);
-    write_activity("Test", "stamp probe");
+    write_activity(&cfg, "Test", "stamp probe");
     let after = shell_date(&["+%Y-%m-%d %H:%M"]);
     let day_after = shell_date(&["+%d/%m/%Y"]);
 
@@ -784,6 +791,87 @@ fn test_log_timestamps_are_local_time() {
     assert!(
         act_day == day_before || act_day == day_after,
         "activity.log day {act_day:?} is not the local date (window {day_before} → {day_after})"
+    );
+
+    restore();
+}
+
+/// One activity entry must be one bounded line. The legacy engine dumped the
+/// whole rclone stderr into `activity.log`: a single entry measured 23 MB on
+/// 2026-08-20, and the Activity page read the entire file to render it.
+#[test]
+fn test_activity_entry_is_one_bounded_line() {
+    let _g = config_guard();
+    let tmp = tempfile::TempDir::new().unwrap();
+    let restore = isolate_env(tmp.path());
+    let cfg = Config {
+        logging_enabled: true,
+        log_level: "info".into(),
+        log_rotate: false,
+        ..Config::default()
+    };
+
+    let noisy = format!("start\n{}\nend", "x".repeat(5000));
+    write_activity(&cfg, "Sync", &noisy);
+
+    let text = std::fs::read_to_string(tmp.path().join("activity.log"))
+        .expect("write_activity must create activity.log");
+    assert_eq!(
+        text.lines().count(),
+        1,
+        "one event must occupy exactly one line"
+    );
+    let body = text.trim_end_matches('\n');
+    let len = body.chars().count();
+    assert!(len < 600, "the entry was not capped: {len} chars");
+    assert!(
+        body.contains("debug.log"),
+        "a capped entry must say where the full text lives"
+    );
+    assert!(
+        !body.contains("  "),
+        "newlines must collapse to a single space"
+    );
+
+    restore();
+}
+
+/// `activity.log` must obey the same rotation policy as `debug.log`; it had
+/// grown to 46 MB on this machine because nothing ever rotated it.
+#[test]
+fn test_activity_log_rotates_at_the_size_cap() {
+    let _g = config_guard();
+    let tmp = tempfile::TempDir::new().unwrap();
+    let restore = isolate_env(tmp.path());
+    let cfg = Config {
+        logging_enabled: true,
+        log_level: "info".into(),
+        log_rotate: true,
+        log_max_size_mb: 1,
+        log_max_files: 3,
+        ..Config::default()
+    };
+
+    let filler = "y".repeat(300);
+    let mut wrote = 0usize;
+    for i in 0..6000 {
+        write_activity(&cfg, "Sync", &format!("{i} {filler}"));
+        wrote += 1;
+        if tmp.path().join("activity.1.log").exists() {
+            break;
+        }
+    }
+
+    assert!(
+        tmp.path().join("activity.1.log").exists(),
+        "activity.log never rotated after {wrote} entries"
+    );
+    let current = std::fs::metadata(tmp.path().join("activity.log"))
+        .unwrap()
+        .len();
+    assert!(
+        current < 1024 * 1024,
+        "activity.log is still over the cap after rotating: {current} bytes"
     );
 
     restore();

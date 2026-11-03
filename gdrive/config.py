@@ -1,11 +1,16 @@
 """Configuration: defaults, loading and saving."""
 
 import json
+import os
 from pathlib import Path
 
 from .constants import SYNC_DIR_DEFAULT
 
-CONFIG_DIR = Path.home() / ".config" / "gdrive"
+# Same rule as the Rust core's config_home(): GDRIVE_CONFIG_DIR wins, so the UI
+# and the daemon can be pointed at one isolated directory (tests, the README
+# screenshot sandbox) instead of only the real home.
+CONFIG_DIR = Path(os.environ.get("GDRIVE_CONFIG_DIR") or
+                  (Path.home() / ".config" / "gdrive"))
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 LOG_DIR = CONFIG_DIR
 

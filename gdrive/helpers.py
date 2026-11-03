@@ -27,6 +27,34 @@ def format_size(b):
     return f"{b:.1f} PB"
 
 
+def _rotate_log(base, max_bytes, max_files):
+    """Shifts `base` → `base.1.log` → … once it exceeds max_bytes.
+
+    Shared by debug.log and activity.log: activity.log had grown to 46 MB on a
+    real install because only debug.log was ever rotated.
+    """
+    logf = LOG_DIR / base
+    if not logf.exists() or logf.stat().st_size <= max_bytes:
+        return
+    stem = base[:-4] if base.endswith(".log") else base
+    keep = max(1, int(max_files))
+    for i in range(keep - 1, 0, -1):
+        src = LOG_DIR / f"{stem}.{i}.log"
+        if not src.exists():
+            continue
+        if i + 1 >= keep:
+            src.unlink()
+        else:
+            src.rename(LOG_DIR / f"{stem}.{i + 1}.log")
+    if logf.exists():
+        logf.rename(LOG_DIR / f"{stem}.1.log")
+
+
+# Longest single activity entry kept; the full text always stays in debug.log.
+# One legacy sync run put a 23 MB multi-line rclone dump into activity.log.
+ACTIVITY_MESSAGE_MAX_CHARS = 400
+
+
 def log_write(config, level, component, message, also_activity=False):
     """Writes to debug.log. If also_activity=True, also to activity.log."""
     if not config.get("logging_enabled", True):
@@ -40,33 +68,33 @@ def log_write(config, level, component, message, also_activity=False):
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{now}] [{level.upper():5s}] [{component}] {message}\n"
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    logf = LOG_DIR / "debug.log"
-    if config.get("log_rotate", True) and logf.exists():
-        max_mb = config.get("log_max_size_mb", 10)
-        if logf.stat().st_size > max_mb * 1024 * 1024:
-            for i in range(config.get("log_max_files", 5) - 1, 0, -1):
-                src = LOG_DIR / f"debug.{i}.log"
-                dst = LOG_DIR / f"debug.{i + 1}.log"
-                if src.exists():
-                    if i + 1 >= config.get("log_max_files", 5):
-                        src.unlink()
-                    else:
-                        src.rename(dst)
-            if logf.exists():
-                logf.rename(LOG_DIR / "debug.1.log")
-    with open(logf, "a") as f:
+    if config.get("log_rotate", True):
+        _rotate_log("debug.log",
+                    config.get("log_max_size_mb", 10) * 1024 * 1024,
+                    config.get("log_max_files", 5))
+    with open(LOG_DIR / "debug.log", "a") as f:
         f.write(line)
 
     if also_activity:
-        write_activity(component, message)
+        write_activity(component, message, config)
 
 
-def write_activity(component, message):
-    """Appends an event to activity.log (flat format with the | separator)."""
+def write_activity(component, message, config=None):
+    """Appends ONE bounded line to activity.log (`dd/MM/yyyy HH:mm:ss | comp | msg`)."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    if config is None:
+        from .config import load_config
+        config = load_config()
+    if config.get("log_rotate", True):
+        _rotate_log("activity.log",
+                    config.get("log_max_size_mb", 10) * 1024 * 1024,
+                    config.get("log_max_files", 5))
+    flat = " ".join(str(message).split())
+    if len(flat) > ACTIVITY_MESSAGE_MAX_CHARS:
+        flat = flat[:ACTIVITY_MESSAGE_MAX_CHARS] + "… (texto completo en debug.log)"
     now = time.strftime("%d/%m/%Y %H:%M:%S")
     with open(LOG_DIR / "activity.log", "a") as f:
-        f.write(f"{now} | {component} | {message}\n")
+        f.write(f"{now} | {component} | {flat}\n")
 
 
 def rclone_about():

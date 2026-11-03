@@ -1,7 +1,5 @@
 """Activity page."""
 
-import time
-
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -9,6 +7,23 @@ from gi.repository import Adw, Gtk
 
 from ..config import CONFIG_DIR
 from ..i18n import t
+
+
+def read_tail_lines(path, limit=100, window=128 * 1024):
+    """Return the last `limit` complete lines, reading at most `window` bytes.
+
+    The page paints a screenful, and this file is only bounded by rotation:
+    before the cap existed it measured 46 MB, all of it parsed to show 100 rows.
+    """
+    with open(path, "rb") as f:
+        size = f.seek(0, 2)
+        start = max(0, size - window)
+        f.seek(start)
+        chunk = f.read().decode("utf-8", "replace")
+    lines = chunk.splitlines()
+    if start and lines:
+        lines = lines[1:]  # the seek landed in the middle of a line
+    return lines[-limit:]
 
 
 class ActivityPage(Gtk.Box):
@@ -59,7 +74,10 @@ class ActivityPage(Gtk.Box):
         if not log.exists():
             self._list.append(Adw.ActionRow(title=t("activity.no_activity")))
             return
-        for line in reversed(log.read_text().strip().splitlines()[-100:]):
+        # Read the tail only: the page shows 100 rows and the file is capped by
+        # rotation, so loading it whole meant parsing tens of megabytes to paint
+        # a screenful.
+        for line in reversed(read_tail_lines(log)):
             parts = line.split(" | ", 2)
             if len(parts) >= 2:
                 self._list.append(
@@ -72,7 +90,7 @@ class ActivityPage(Gtk.Box):
         self._list.append(Adw.ActionRow(title=t("activity.no_activity")))
 
     def log(self, action, detail=""):
-        now = time.strftime("%d/%m/%Y %H:%M:%S")
-        logf = CONFIG_DIR / "activity.log"
-        with open(logf, "a") as f:
-            f.write(f"{now} | {action} | {detail}\n")
+        """Appends one event through the shared writer (rotation and caps)."""
+        from ..helpers import write_activity
+
+        write_activity(action, detail)

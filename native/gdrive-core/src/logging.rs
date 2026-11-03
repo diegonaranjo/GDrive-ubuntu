@@ -76,40 +76,74 @@ pub fn log_write(cfg: &Config, level: Level, component: &str, message: &str, als
     append(&dir.join("debug.log"), &line);
 
     if also_activity {
-        write_activity(component, message);
+        write_activity(cfg, component, message);
     }
 }
 
-/// Appends an event to `activity.log` in `dd/MM/yyyy HH:mm:ss | comp | msg` form.
-pub fn write_activity(component: &str, message: &str) {
+/// Longest single activity entry kept: the full text always goes to
+/// `debug.log`, and one legacy sync run once put a 23 MB multi-line rclone dump
+/// into `activity.log`, which the Activity page then read whole.
+const ACTIVITY_MESSAGE_MAX_CHARS: usize = 400;
+
+/// Appends ONE line to `activity.log` in `dd/MM/yyyy HH:mm:ss | comp | msg` form.
+/// Embedded newlines are flattened and the message is capped, so an entry can
+/// never grow past one line no matter what rclone printed.
+pub fn write_activity(cfg: &Config, component: &str, message: &str) {
     let dir = log_dir();
     fs::create_dir_all(&dir).ok();
-    let line = format!("{} | {} | {}\n", timestamp_activity(), component, message);
+    // Rotate before writing, like debug.log: rotating after would leave no
+    // activity.log at all until the next event.
+    if cfg.log_rotate {
+        rotate(
+            &dir,
+            "activity.log",
+            cfg.log_max_size_mb * 1024 * 1024,
+            cfg.log_max_files.max(1) as usize,
+        );
+    }
+    let flat = message.split_whitespace().collect::<Vec<_>>().join(" ");
+    let flat = if flat.chars().count() > ACTIVITY_MESSAGE_MAX_CHARS {
+        let kept: String = flat.chars().take(ACTIVITY_MESSAGE_MAX_CHARS).collect();
+        format!("{kept}… (texto completo en debug.log)")
+    } else {
+        flat
+    };
+    let line = format!("{} | {} | {}\n", timestamp_activity(), component, flat);
     append(&dir.join("activity.log"), &line);
 }
 
 /// Rotates `debug.log` → `debug.1.log` → … once it exceeds `log_max_size_mb`.
 fn maybe_rotate(cfg: &Config, dir: &Path) {
-    let logf = dir.join("debug.log");
-    let max_bytes = cfg.log_max_size_mb * 1024 * 1024;
+    rotate(
+        dir,
+        "debug.log",
+        cfg.log_max_size_mb * 1024 * 1024,
+        cfg.log_max_files.max(1) as usize,
+    );
+}
+
+/// Shifts `base` → `base.1.log` → … once `base` exceeds `max_bytes`, keeping at
+/// most `max_files` generations. Used for both logs, and parameterized in bytes
+/// so a test can exercise it without writing a megabyte.
+fn rotate(dir: &Path, base: &str, max_bytes: u64, max_files: usize) {
+    let stem = base.strip_suffix(".log").unwrap_or(base);
+    let logf = dir.join(base);
     let Ok(meta) = fs::metadata(&logf) else {
         return;
     };
     if meta.len() <= max_bytes {
         return;
     }
-    let max_files = cfg.log_max_files.max(1) as usize;
-    // Shift debug.N.log → debug.N+1.log (dropping the oldest one).
     for i in (0..max_files).rev() {
         let src = dir.join(if i == 0 {
-            "debug.log".to_string()
+            base.to_string()
         } else {
-            format!("debug.{i}.log")
+            format!("{stem}.{i}.log")
         });
         if !src.exists() {
             continue;
         }
-        let dst = dir.join(format!("debug.{}.log", i + 1));
+        let dst = dir.join(format!("{stem}.{}.log", i + 1));
         if i + 1 >= max_files {
             let _ = fs::remove_file(&src);
         } else {

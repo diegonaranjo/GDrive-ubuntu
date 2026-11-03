@@ -45,7 +45,14 @@ desktop-files/         # .desktop launchers
 - **Logging**: `log_write()` with rotation, levels (error/info/debug/trace),
   export to zip. Stamps are **local time** on both sides (Python
   `time.strftime`, Rust `chrono::Local`); a UTC stamp here would sit hours away
-  from the rclone output embedded in the same lines.
+  from the rclone output embedded in the same lines. **Both** `debug.log` and
+  `activity.log` rotate at `log_max_size_mb` (they did not always: activity.log
+  reached 46 MB because only debug.log rotated), and an activity entry is
+  flattened to one capped line — the full rclone detail belongs in debug.log,
+  and one legacy run once wrote a 23 MB multi-line entry there.
+- **Config dir override**: `GDRIVE_CONFIG_DIR` is honored by both the Rust core
+  (`config_home()`) and the Python package (`gdrive/config.py`), so the UI, the
+  daemon and the tests can be pointed at one isolated directory.
 - **Native Rust core**: the `gdrive-daemon` binary performs synchronization and
   is exposed over D-Bus (`com.gdrive.Client`, path `/com/gdrive/Client`). The
   GTK4 UI and the tray talk to it via `gdrive/daemon_client.py`.

@@ -50,6 +50,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`activity.log` never rotated.** It had grown to 46 MB on a real install
+  because the rotation policy (`log_rotate` / `log_max_size_mb` /
+  `log_max_files`) was applied only to `debug.log`. Both logs now share one
+  rotation implementation in each language, and the shift/prune chain is
+  exercised by a test that uses a byte cap instead of a megabyte.
+- **One activity entry could be enormous.** A legacy sync run wrote a single
+  23 MB multi-line entry (the whole rclone stderr, twice). An activity entry is
+  now flattened to one line and capped at 400 characters, with a pointer to
+  `debug.log`, which still receives the full text.
+- **The Activity page parsed the whole log to paint 100 rows.** It now reads the
+  last 128 KB and drops the partial first line. Measured on the real 47.8 MB
+  file: 141 ms and 8,247 lines read, versus under a millisecond and the 5
+  requested lines.
+- `gdrive/config.py` hardcoded `~/.config/gdrive` while the Rust core honored
+  `GDRIVE_CONFIG_DIR`; the two now use the same rule, so the UI can be pointed
+  at an isolated directory like the daemon already could.
 - The bug-report template asked for `journalctl --user -u gdrive-tray.service`
   only, and its example said "GDrive 1.0.0". It now names both user units and
   the current version, so the first thing a triager sees is the log of the unit
