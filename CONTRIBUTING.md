@@ -129,6 +129,11 @@ fix(sync): derive bisync prefix from sync_dir instead of hardcoding it
 tests(core): add run_with_callback progress contract
 ```
 
+`tools/githooks/commit-msg` refuses a subject that already exists in the last 60
+commits, so a message copied from an earlier commit cannot silently describe the
+wrong change. Amending only the message is fine; an intentional repeat (a revert
+or re-land) needs `--no-verify`.
+
 ### Commit identity and the guard
 
 A pushed commit is effectively permanent. Rewriting refs on GitHub does not

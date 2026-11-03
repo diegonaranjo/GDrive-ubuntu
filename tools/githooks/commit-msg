@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+#
+# Refuses a commit whose subject line already exists in recent history.
+#
+# Why: a heredoc commit message copied from an earlier commit silently reuses
+# that commit's summary, and the log then describes the wrong change. This
+# happened twice in one session, so it is now a machine's job.
+#
+# A message-only amend legitimately repeats HEAD's subject, so that case is
+# detected by comparing the staged tree with HEAD's tree.
+#
+# Escape hatch: git commit --no-verify (for intentional repeats, e.g. a revert).
+
+set -uo pipefail
+
+msg_file="${1:-}"
+[[ -n "$msg_file" && -f "$msg_file" ]] || exit 0
+
+subject="$(head -n 1 "$msg_file" | sed 's/[[:space:]]*$//')"
+[[ -z "$subject" ]] && exit 0
+
+head_subject="$(git log -1 --format=%s 2>/dev/null || true)"
+if [[ -n "$head_subject" && "$subject" == "$head_subject" ]]; then
+	if [[ "$(git write-tree 2>/dev/null)" == "$(git rev-parse 'HEAD^{tree}' 2>/dev/null)" ]]; then
+		exit 0 # amending the message only
+	fi
+fi
+
+if git log --format=%s -n 60 2>/dev/null | grep -Fxq -- "$subject"; then
+	{
+		echo "guard: this subject already exists in the last 60 commits:"
+		echo "       $subject"
+		echo "       it was probably pasted from an earlier message, and the log"
+		echo "       would then describe a different change than this commit makes."
+		echo "       Write a subject for what THIS commit does, or use --no-verify"
+		echo "       if the repeat is intentional (a revert, a re-land)."
+	} >&2
+	exit 1
+fi
+
+exit 0

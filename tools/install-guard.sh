@@ -25,8 +25,8 @@ if [ ! -x "$REPO/tools/githooks/pre-commit" ]; then
 	echo "guard: tools/githooks is missing; run this from the repository root." >&2
 	exit 1
 fi
-chmod +x "$REPO/tools/githooks/pre-commit" "$REPO/tools/githooks/pre-push" \
-	"$REPO/tools/secret-scan.sh" 2>/dev/null || true
+chmod +x "$REPO"/tools/githooks/* "$REPO/tools/secret-scan.sh" \
+	"$REPO/tools/guard-battery.sh" 2>/dev/null || true
 
 git config core.hooksPath tools/githooks
 echo "guard: core.hooksPath = tools/githooks"

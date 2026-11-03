@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `tools/githooks/commit-msg` refuses a commit whose subject already exists in
+  the last 60 commits: a heredoc message pasted from an earlier commit silently
+  describes the wrong change, and it happened twice in one session. A
+  message-only amend stays allowed, detected by comparing the staged tree with
+  HEAD's tree.
 - **`tools/secret-scan.sh`**, an identity and secret guard that runs on every
   commit (`tools/githooks/pre-commit`), every push (`pre-push`) and in CI (the
   new `guard` job). Pushed commits are permanent — after a ref rewrite GitHub

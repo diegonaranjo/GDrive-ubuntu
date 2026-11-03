@@ -244,6 +244,11 @@ the push.
   machine's global identity in this clone and pins a noreply `user.email`
   repo-locally when the clone would inherit a personal one. It never edits the
   global git config.
+- `tools/githooks/commit-msg` refuses a subject line that already exists in the
+  last 60 commits, because a heredoc message pasted from an earlier commit
+  silently describes the wrong change (this happened twice in one session). A
+  message-only amend is allowed, detected by comparing the staged tree with
+  HEAD's tree.
 - Identity policy is asymmetric on purpose so contributors are not blocked:
   `.git/git-guard.deny` (untracked, seeded from the machine's global
   `user.email`) refuses that address; `git config gitguard.strict-identity true`
