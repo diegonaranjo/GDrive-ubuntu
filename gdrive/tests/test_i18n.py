@@ -2,7 +2,7 @@
 
 import unittest
 
-from gdrive.i18n import _BUILTIN, t
+from gdrive.i18n import _BUILTIN, set_language, t
 
 
 class CatalogParityTest(unittest.TestCase):
@@ -35,8 +35,60 @@ class CatalogParityTest(unittest.TestCase):
                     value, key, f"{key} has no value in {lang}"
                 )
 
+    def test_es_runtime_values_are_not_the_english_text(self):
+        """A new key copied from `en` into `es` is exactly the bug this guards.
+
+        `value != key` cannot see it: an English sentence copied into the `es`
+        catalog is a perfectly valid value, so the comparison has to be against
+        the other language's value.
+        """
+        for key in ("tray.daemon_ensure_failed", "theme.load_failed"):
+            self.assertNotEqual(
+                _BUILTIN["es"][key],
+                _BUILTIN["en"][key],
+                f"{key} still carries the English text in es",
+            )
+        self.assertIn("No se pudo", _BUILTIN["es"]["tray.daemon_ensure_failed"])
+        self.assertIn("cargar", _BUILTIN["es"]["theme.load_failed"])
+
     def test_missing_key_falls_back_to_the_key(self):
         self.assertEqual(t("no.existe"), "no.existe")
+
+
+class RuntimeShellStringsTest(unittest.TestCase):
+    """The tray and the theme loader resolve through the catalog, not literals."""
+
+    def tearDown(self):
+        set_language("es")
+
+    def test_tray_message_in_both_languages(self):
+        set_language("es")
+        self.assertEqual(
+            t("tray.daemon_ensure_failed"), "No se pudo asegurar el daemon"
+        )
+        set_language("en")
+        self.assertEqual(
+            t("tray.daemon_ensure_failed"), "Could not ensure the daemon"
+        )
+
+    def test_theme_message_interpolates_the_detail(self):
+        set_language("es")
+        self.assertEqual(
+            t("theme.load_failed", path="/x/theme.css", error="boom"),
+            "No se pudo cargar /x/theme.css: boom",
+        )
+        set_language("en")
+        self.assertEqual(
+            t("theme.load_failed", path="/x/theme.css", error="boom"),
+            "Could not load /x/theme.css: boom",
+        )
+
+    def test_unsupported_language_falls_back_to_spanish(self):
+        # A hand-edited settings.json must not turn the UI into raw key names.
+        set_language("fr")
+        self.assertEqual(
+            t("tray.daemon_ensure_failed"), "No se pudo asegurar el daemon"
+        )
 
 
 if __name__ == "__main__":

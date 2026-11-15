@@ -33,7 +33,12 @@ def available_languages():
 
 
 def _load_translations(lang):
-    t = _BUILTIN.get(lang, {})
+    # An unsupported `language` value (a hand-edited settings.json, for example)
+    # falls back to Spanish instead of an empty catalog: with an empty one every
+    # `t()` returns the raw key, so the UI prints `tray.daemon_ensure_failed`
+    # instead of a message. The Rust core and the Nautilus extension already
+    # fall back to `es`, and this keeps the three in agreement.
+    t = _BUILTIN.get(lang) or _BUILTIN["es"]
     # Try loading from external file (user overrides)
     custom = Path.home() / ".config" / "gdrive" / f"translations_{lang}.json"
     if custom.exists():
