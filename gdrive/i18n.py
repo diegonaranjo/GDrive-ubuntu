@@ -257,6 +257,10 @@ _BUILTIN = {
         # ── Language selector ──
         "settings.language": "Idioma",
         "settings.language_subtitle": "Idioma de la interfaz",
+
+        # ── Runtime shells (tray / theme loader) ──
+        "tray.daemon_ensure_failed": "No se pudo asegurar el daemon",
+        "theme.load_failed": "No se pudo cargar {path}: {error}",
     },
     "en": {
         # ── Status page ──
@@ -470,5 +474,9 @@ _BUILTIN = {
         # ── Language selector ──
         "settings.language": "Language",
         "settings.language_subtitle": "Interface language",
+
+        # ── Runtime shells (tray / theme loader) ──
+        "tray.daemon_ensure_failed": "Could not ensure the daemon",
+        "theme.load_failed": "Could not load {path}: {error}",
     },
 }

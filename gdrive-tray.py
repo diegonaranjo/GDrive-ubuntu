@@ -189,7 +189,7 @@ def sync_now(*_):
     t = _load_i18n()
     log_msg("Sync now requested from tray")
     if not _ensure_daemon():
-        log_msg("No se pudo asegurar el daemon")
+        log_msg(t("tray.daemon_ensure_failed"))
         return
 
     _anim_state["last_sync_state"] = True
