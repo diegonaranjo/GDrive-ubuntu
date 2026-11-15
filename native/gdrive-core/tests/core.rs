@@ -616,14 +616,123 @@ fn test_interval_seconds() {
     assert_eq!(interval_seconds("bogus"), None);
 }
 
+/// Serializes the tests that set the process-wide language: `set_language` is a
+/// global, and parallel tests switching it flaked the assertions (same class of
+/// problem as `CONFIG_LOCK`).
+static I18N_LOCK: Mutex<()> = Mutex::new(());
+
+/// Takes the i18n lock and recovers from poisoning on purpose: a peer test that
+/// panicked must not turn one failure into several.
+fn i18n_guard() -> std::sync::MutexGuard<'static, ()> {
+    I18N_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 #[test]
 fn test_i18n_es_en() {
+    let _g = i18n_guard();
     gdrive_core::i18n::set_language("es");
     assert_eq!(gdrive_core::i18n::t("status.idle"), "Listo");
     gdrive_core::i18n::set_language("en");
     assert_eq!(gdrive_core::i18n::t("status.idle"), "Ready");
     // Missing key → returns the key itself.
     assert_eq!(gdrive_core::i18n::t("no.existe"), "no.existe");
+}
+
+#[test]
+fn test_i18n_catalog_parity() {
+    let _g = i18n_guard();
+    let es = gdrive_core::i18n::catalog_keys("es");
+    let en = gdrive_core::i18n::catalog_keys("en");
+    assert!(!es.is_empty(), "the bundled catalog must not be empty");
+    assert_eq!(es, en, "es and en must expose exactly the same keys");
+}
+
+#[test]
+fn test_i18n_runtime_keys_present_and_translated() {
+    let _g = i18n_guard();
+    for lang in ["es", "en"] {
+        gdrive_core::i18n::set_language(lang);
+        for key in gdrive_core::i18n::catalog_keys(lang) {
+            assert_ne!(
+                gdrive_core::i18n::t(key),
+                key,
+                "{key} has no value in {lang}"
+            );
+        }
+    }
+    // The catalog must carry the runtime keys the daemon emits (issue #1), so a
+    // missing translation is a test failure and not a silently leaked key.
+    let keys = gdrive_core::i18n::catalog_keys("es");
+    for key in [
+        "error.serde",
+        "error.sync_timeout",
+        "error.process_exit",
+        "error.save_config",
+        "error.invalid_config",
+        "log.sync.no_stderr",
+        "log.sync.no_transfers",
+        "log.sync.orphan_lock_removed",
+        "log.sync.lock_unreadable",
+        "log.daemon.sync_dir_missing",
+        "log.daemon.watcher_start_failed",
+        "log.daemon.watching",
+        "log.watcher.dir_missing",
+        "log.watcher.create_failed",
+    ] {
+        assert!(keys.contains(&key), "missing catalog key: {key}");
+    }
+}
+
+#[test]
+fn test_error_message_follows_language() {
+    let _g = i18n_guard();
+    use gdrive_core::error::Error;
+
+    gdrive_core::i18n::set_language("es");
+    assert_eq!(
+        Error::SyncTimeout.message(),
+        "rclone sin actividad: se terminó el sync por estancamiento"
+    );
+    let save = Error::SaveConfig {
+        path: "/tmp/cfg.json".into(),
+        detail: "boom".into(),
+    };
+    assert_eq!(
+        save.message(),
+        "no se pudo persistir la configuración en /tmp/cfg.json: boom"
+    );
+    assert_eq!(
+        Error::ProcessExit("3".into()).message(),
+        "subproceso salió con código 3"
+    );
+
+    gdrive_core::i18n::set_language("en");
+    assert_eq!(
+        Error::SyncTimeout.message(),
+        "rclone went idle: sync aborted after stalling"
+    );
+    assert_eq!(
+        save.message(),
+        "could not persist the configuration to /tmp/cfg.json: boom"
+    );
+    assert_eq!(
+        Error::InvalidConfig {
+            key: "sync_dir".into(),
+            value: "nope".into()
+        }
+        .message(),
+        "invalid configuration value for 'sync_dir': nope"
+    );
+
+    // `Display` is developer-facing and language-independent; only `message()`
+    // is localized, so the raw log text no longer depends on the UI language.
+    gdrive_core::i18n::set_language("es");
+    assert_eq!(
+        Error::SyncTimeout.to_string(),
+        "rclone went idle: sync aborted after stalling"
+    );
+    // Variants carrying an OS/subprocess detail keep it verbatim.
+    assert!(Error::Rclone("boom".into()).message().contains("boom"));
 }
 
 #[test]
