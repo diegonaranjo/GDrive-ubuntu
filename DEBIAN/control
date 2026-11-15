@@ -2,12 +2,14 @@ Package: google-drive-ubuntu
 Version: 1.2.0
 Section: utils
 Priority: optional
-Architecture: all
-Depends: gnome-online-accounts, nautilus, python3-nautilus, gir1.2-goa-1.0, gir1.2-nautilus-4.1, dbus-x11, xdg-utils, libglib2.0-bin, curl, rclone
+Architecture: any
+Depends: python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-ayatanaappindicator3-0.1, nautilus, python3-nautilus, gir1.2-nautilus-4.1, dbus-x11, xdg-utils, libglib2.0-bin, rclone
 Recommends: gnome-terminal
 Maintainer: Google Drive Ubuntu Project
 Description: Google Drive Client for Ubuntu
  Desktop client for Google Drive on Ubuntu/Linux, built on rclone.
- Includes GNOME Online Accounts integration,
- a Nautilus extension, application shortcuts and
- automatic synchronization with rclone.
+ Includes a GTK4 window, a GTK3 tray icon, a Nautilus extension and
+ automatic synchronization driven by a native Rust engine.
+ .
+ GNOME Online Accounts is not used: GOA 3.58 dropped Drive file
+ support, so the account lives in rclone's configuration.

@@ -7,11 +7,20 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # 1. Native daemon (Rust). Tray and app detect it and respect a running one.
-DAEMON_BIN="$SCRIPT_DIR/native/gdrive-core/target/release/gdrive-daemon"
-if [ ! -x "$DAEMON_BIN" ]; then
-    # Fallback: debug or installed location.
-    DAEMON_BIN="$SCRIPT_DIR/native/gdrive-core/target/debug/gdrive-daemon"
-fi
+# The candidates cover all three installs: this clone's release/debug build,
+# setup.sh's user install and the packaged /usr/bin/gdrive-daemon.
+DAEMON_BIN=""
+for cand in \
+    "$SCRIPT_DIR/native/gdrive-core/target/release/gdrive-daemon" \
+    "$SCRIPT_DIR/native/gdrive-core/target/debug/gdrive-daemon" \
+    "${HOME:-/nonexistent}/.local/bin/gdrive-daemon" \
+    /usr/bin/gdrive-daemon
+do
+    if [ -x "$cand" ]; then
+        DAEMON_BIN="$cand"
+        break
+    fi
+done
 # The "already running" test is ownership of the D-Bus name, not `pgrep
 # -f`: the pgrep pattern matched the command line of the shell calling
 # this script, so launch.sh "saw" processes that did not exist and skipped
