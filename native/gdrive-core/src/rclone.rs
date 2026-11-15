@@ -112,7 +112,7 @@ fn run(args: &[&str], timeout_secs: u64) -> Result<String, String> {
     cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = match cmd.spawn() {
         Ok(c) => c,
-        Err(e) => return Err(format!("rclone no disponible: {e}")),
+        Err(e) => return Err(format!("rclone not available: {e}")),
     };
     let mut out_pipe = child.stdout.take().ok_or("no stdout pipe")?;
     let mut err_pipe = child.stderr.take().ok_or("no stderr pipe")?;

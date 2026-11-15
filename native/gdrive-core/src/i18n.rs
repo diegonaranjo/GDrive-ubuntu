@@ -68,6 +68,17 @@ pub fn available_languages() -> Vec<(&'static str, &'static str)> {
     vec![("es", "Español"), ("en", "English")]
 }
 
+/// Sorted keys bundled for `lang`.
+///
+/// Exposed for the catalog parity test: `es` and `en` must always expose the
+/// same key set, and a key added to one language only is a silent leak of the
+/// key name to the user.
+pub fn catalog_keys(lang: &str) -> Vec<&'static str> {
+    let mut keys: Vec<&'static str> = builtin(lang).keys().copied().collect();
+    keys.sort_unstable();
+    keys
+}
+
 /// User override: `~/.config/gdrive/translations_{lang}.json`.
 fn override_file(lang: &str, key: &str) -> Option<String> {
     let path: PathBuf = PathBuf::from(std::env::var_os("HOME")?)
@@ -102,6 +113,40 @@ fn builtin(lang: &str) -> HashMap<&'static str, &'static str> {
             ("account.no_storage_info", "No se pudo obtener información"),
             ("account.not_signed_in", "Not signed in"),
             ("account.google_drive_account", "Google Drive account"),
+            // ── Runtime errors (resolved by `Error::message`) ──
+            ("error.serde", "config JSON inválido: {0}"),
+            (
+                "error.sync_timeout",
+                "rclone sin actividad: se terminó el sync por estancamiento",
+            ),
+            ("error.process_exit", "subproceso salió con código {0}"),
+            (
+                "error.save_config",
+                "no se pudo persistir la configuración en {0}: {1}",
+            ),
+            (
+                "error.invalid_config",
+                "valor de configuración inválido para '{0}': {1}",
+            ),
+            // ── Log messages (component tags stay untranslated) ──
+            ("log.sync.no_stderr", "sin stderr disponible"),
+            ("log.sync.no_transfers", "sin transferencias"),
+            (
+                "log.sync.orphan_lock_removed",
+                "Lock huérfano eliminado: {0}",
+            ),
+            (
+                "log.sync.lock_unreadable",
+                "No se pudo leer el lock de bisync: {0}",
+            ),
+            ("log.daemon.sync_dir_missing", "sync_dir no existe: {0}"),
+            (
+                "log.daemon.watcher_start_failed",
+                "no se pudo iniciar el watcher: {0}",
+            ),
+            ("log.daemon.watching", "observando cambios en {0}"),
+            ("log.watcher.dir_missing", "watch dir no existe: {0}"),
+            ("log.watcher.create_failed", "crear watcher: {0}"),
         ]),
         "en" => HashMap::from([
             ("status.idle", "Ready"),
@@ -120,6 +165,40 @@ fn builtin(lang: &str) -> HashMap<&'static str, &'static str> {
             ("account.no_storage_info", "Could not retrieve information"),
             ("account.not_signed_in", "Not signed in"),
             ("account.google_drive_account", "Google Drive account"),
+            // ── Runtime errors (resolved by `Error::message`) ──
+            ("error.serde", "invalid config JSON: {0}"),
+            (
+                "error.sync_timeout",
+                "rclone went idle: sync aborted after stalling",
+            ),
+            ("error.process_exit", "subprocess exited with code {0}"),
+            (
+                "error.save_config",
+                "could not persist the configuration to {0}: {1}",
+            ),
+            (
+                "error.invalid_config",
+                "invalid configuration value for '{0}': {1}",
+            ),
+            // ── Log messages (component tags stay untranslated) ──
+            ("log.sync.no_stderr", "no stderr available"),
+            ("log.sync.no_transfers", "no transfers"),
+            ("log.sync.orphan_lock_removed", "Orphaned lock removed: {0}"),
+            (
+                "log.sync.lock_unreadable",
+                "Could not read the bisync lock: {0}",
+            ),
+            (
+                "log.daemon.sync_dir_missing",
+                "sync_dir does not exist: {0}",
+            ),
+            (
+                "log.daemon.watcher_start_failed",
+                "could not start the watcher: {0}",
+            ),
+            ("log.daemon.watching", "watching for changes in {0}"),
+            ("log.watcher.dir_missing", "watch dir does not exist: {0}"),
+            ("log.watcher.create_failed", "create watcher: {0}"),
         ]),
         _ => builtin("es"),
     }
