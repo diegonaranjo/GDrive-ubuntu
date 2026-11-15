@@ -4,10 +4,9 @@ Type=Application
 Name=Google Drive
 Comment=Desktop client for Google Drive
 Comment[es]=Cliente de escritorio para Google Drive
-# RUTA_DEL_PROYECTO must be replaced with the absolute path of the clone at
-# install time. Nothing substitutes it today: setup.sh writes its own launcher
-# from a heredoc and build-deb.sh copies this file verbatim into the .deb.
-Exec=bash RUTA_DEL_PROYECTO/launch.sh
+# The launcher has no fixed path until the app is installed, so build-deb.sh
+# replaces this placeholder with the installed entry point (/usr/bin/gdrive).
+Exec=@GDRIVE_LAUNCHER@
 Icon=google-drive
 Terminal=false
 Categories=Utility;FileTools;Network;

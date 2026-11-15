@@ -24,16 +24,43 @@ gdrive-app.py          # GTK4/libadwaita — main window (6 pages)
 gdrive-tray.py         # GTK3/AppIndicator3 — system tray icon
 launch.sh              # launches daemon + tray + window
 install.sh             # system install (requires root)
-build-deb.sh           # builds the .deb package
-verify.sh              # verifies the installation
-Makefile               # build / install / verify / uninstall targets
+build-deb.sh           # builds the .deb: app, daemon, icons, desktop entries
+tools/check-deb.sh     # asserts the built .deb contains a runnable app
+verify.sh              # verifies the installation (packaged or per-user)
+Makefile               # build / check-deb / install / verify / uninstall targets
 native/gdrive-core/    # native Rust core: config, sync (rclone bisync), logging, i18n, D-Bus daemon
 native/gdrive-ui/      # Rust port of the GTK4 window (WIP: compiles, not installed, not in CI)
-DEBIAN/control         # .deb metadata
+DEBIAN/                # control (version + arch placeholder), postinst, postrm
 nautilus-extension/    # Python Nautilus extension (context menu)
 icons/                 # google-drive.svg + Lucide theme
-desktop-files/         # .desktop launchers
+desktop-files/         # .desktop launchers (`@GDRIVE_LAUNCHER@` resolved by build-deb.sh)
 ```
+
+### Install paths
+
+Two supported paths, with different owners. Do not mix them in one machine
+without knowing which file wins:
+
+| What | `.deb` (system-wide) | `./setup.sh` (per user) |
+| ---- | -------------------- | ----------------------- |
+| App + theme | `/usr/share/gdrive/` | run from the clone |
+| Entry points | `/usr/bin/gdrive`, `/usr/bin/gdrive-daemon` | `~/.local/bin/gdrive-daemon` |
+| Nautilus extension | `/usr/share/nautilus-python/extensions/` | `~/.local/share/nautilus-python/extensions/` |
+| systemd user units | **never** (a postinst runs as root and cannot write `~/.config/systemd/user` for the real user) | `~/.config/systemd/user/` |
+
+- `DEBIAN/control` carries `Architecture: any` as a placeholder; `build-deb.sh`
+  substitutes `dpkg --print-architecture`, because the package ships a compiled
+  daemon and `all` would be a lie.
+- `Depends` lists what the code actually imports. `gnome-online-accounts` and
+  `gir1.2-goa-1.0` were removed when GOA 3.58 dropped Drive file support: the
+  account lives in rclone's configuration.
+- `tools/check-deb.sh` is the guard against the regression this package had:
+  it installed cleanly and contained no application code, no daemon and an
+  `Exec` pointing at `RUTA_DEL_PROYECTO`. It fails on a missing payload path, a
+  non-ELF daemon, an unresolved placeholder, a retired dependency, `__pycache__`
+  or an `Architecture: all`.
+- `install.sh` is the retired root installer. It stays in the tree but is not
+  shipped in the package, and `make install` now installs the `.deb`.
 
 ### Architecture decisions
 
@@ -283,6 +310,12 @@ the push.
 # Run the app
 python3 gdrive-app.py
 
+# Build the package and assert its contents
+make build && make check-deb        # or: tools/check-deb.sh build/*.deb
+
+# Verify the installation (packaged .deb or the per-user setup.sh one)
+./verify.sh
+
 # Restart the tray
 systemctl --user restart gdrive-tray.service
 
@@ -291,12 +324,6 @@ systemctl --user restart gdrive-daemon.service
 
 # Watch logs
 tail -f ~/.config/gdrive/debug.log
-
-# Verify the installation
-./verify.sh
-
-# Build the .deb
-make build
 
 # Manual sync (newest file wins; plain --resync would let the remote win)
 rclone bisync gdrive:/ ~/GoogleDrive --conflict-resolve newer --resilient

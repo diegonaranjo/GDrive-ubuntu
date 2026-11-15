@@ -81,3 +81,40 @@ jobs:
 
       - name: Catalog parity (es/en)
         run: python3 -m unittest discover -s gdrive/tests -v
+
+  package:
+    name: Package (.deb)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/gdrive-core
+
+      - name: Script syntax
+        run: |
+          bash -n build-deb.sh
+          bash -n verify.sh
+          bash -n tools/check-deb.sh
+          sh -n DEBIAN/postinst
+          sh -n DEBIAN/postrm
+
+      # The package used to contain no application code, no daemon and an Exec
+      # pointing at a placeholder, so it installed cleanly and launched nothing.
+      - name: Build the package
+        run: ./build-deb.sh
+
+      - name: Check the package contents
+        run: ./tools/check-deb.sh build/google-drive-ubuntu-*.deb
+
+      - name: Upload the package
+        uses: actions/upload-artifact@v4
+        with:
+          name: google-drive-ubuntu-deb
+          path: build/*.deb
+          if-no-files-found: error

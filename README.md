@@ -94,7 +94,33 @@ sudo apt install \
 
 ---
 
-## Quick start
+## Install
+
+Two install paths are supported, and they own different things. The package is
+system-wide because it ships a compiled binary; the systemd **user** units
+cannot be package-owned (`~/.config/systemd/user` belongs to the user), so
+`setup.sh` stays the only thing that writes them.
+
+| What | `.deb` (system-wide) | `./setup.sh` (per user) |
+| ---- | -------------------- | ----------------------- |
+| App, daemon, theme | `/usr/share/gdrive`, `/usr/bin/gdrive`, `/usr/bin/gdrive-daemon` | daemon copied to `~/.local/bin` |
+| Nautilus extension | `/usr/share/nautilus-python/extensions` | `~/.local/share/nautilus-python/extensions` |
+| systemd user units | **not installed by the package** | `~/.config/systemd/user` |
+
+### Option A — the package
+
+```bash
+make build                               # compiles the daemon and stages the app
+sudo apt install ./build/google-drive-ubuntu-*.deb   # apt resolves the dependencies
+./verify.sh                              # asserts the packaged layout
+./setup.sh                               # optional: tray + supervised engine, as your user
+```
+
+`make check-deb` (or `tools/check-deb.sh`) builds the package and asserts its
+contents: application code, daemon binary, entry points, icons, desktop entries,
+no placeholder left in `Exec`, and no `gnome-online-accounts` in `Depends`.
+
+### Option B — from the clone
 
 ```bash
 # 1. Clone
@@ -296,10 +322,12 @@ GDrive/
 ├── gdrive-tray.py           # GTK3 tray daemon
 ├── launch.sh                # Launcher (daemon + app + tray)
 ├── setup.sh                 # User install (icons, .desktop, systemd, daemon)
-├── install.sh               # Legacy sudo-based installer (alternative)
-├── build-deb.sh             # Builds the .deb package
-├── verify.sh                # Verifies the installation
-├── Makefile                 # Commands: build, install, verify, uninstall
+├── install.sh               # Retired root installer (kept in the tree, not shipped in the .deb)
+├── build-deb.sh             # Builds the .deb: app, daemon, icons, desktop entries
+├── tools/check-deb.sh       # Asserts the built .deb actually contains a runnable app
+├── DEBIAN/                  # control, postinst, postrm
+├── verify.sh                # Verifies the installation (packaged or per-user)
+├── Makefile                 # Commands: build, check-deb, install, verify, uninstall
 ├── native/                  # Native core (Rust) — the sync engine + D-Bus daemon
 │   ├── gdrive-core/         # Rust crate: config, sync (rclone bisync), logging, i18n, daemon
 │   └── gdrive-ui/           # Rust port of the GTK4 window — work in progress, not shipped yet
@@ -312,7 +340,7 @@ GDrive/
 │   ├── theme.py             # CSS loader
 │   ├── window.py            # DriveWindow (sidebar + toasts + shortcuts)
 │   └── pages/               # Six pages (status, account, sync, selective, settings, activity)
-├── .github/workflows/ci.yml # CI: Rust (fmt + clippy + test) + Python syntax
+├── .github/workflows/ci.yml # CI: Rust (fmt + clippy + test) + Python syntax + .deb contents
 ├── theme/theme.css          # CSS with Google identity (animations, gradients)
 ├── icons/                   # google-drive.svg + Lucide symbolic theme
 ├── desktop-files/           # .desktop templates

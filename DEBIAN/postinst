@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# postinst — refreshes the caches that make the package's icons and desktop
+# entries visible. Both are optional: a machine without the cache tools still
+# has a working installation, only a stale cache.
+#
+set -e
+
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+fi
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications >/dev/null 2>&1 || true
+fi
+
+# The systemd user units are deliberately not package-owned: a postinst runs as
+# root and cannot write into ~/.config/systemd/user for the real user.
+if [ "$1" = "configure" ]; then
+    echo "Google Drive installed."
+    echo "For the tray icon and the supervised engine, run ./setup.sh from your clone as your user."
+fi
+
+exit 0

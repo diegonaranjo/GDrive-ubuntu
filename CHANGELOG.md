@@ -52,8 +52,53 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The guard stores no personal identifier: the path rules are derived at run
   time from `$HOME`/`$USER` and the identity list lives in untracked files, so
   the tool meant to stop a leak cannot itself become one.
+- **`tools/check-deb.sh`**, which builds the package and asserts its contents
+  instead of trusting `dpkg-deb`'s exit code: application code, the daemon
+  binary (a real ELF), both entry points, the Nautilus extension, the icons, the
+  desktop entries, no unresolved placeholder, no retired dependency, no
+  `__pycache__`, and an `Architecture` that matches the host. A new CI `package`
+  job runs it on every push and pull request.
+- `DEBIAN/postinst` and `DEBIAN/postrm`: refresh the icon cache and the desktop
+  database, tolerating the tools being absent. Neither touches
+  `~/.config/gdrive`, so removing the package does not destroy an account's
+  rclone setup or its logs.
+
+### Changed
+
+- **The `.deb` installs the application.** `build-deb.sh` now stages the Python
+  package, the window and tray scripts, the launcher, the theme, the icons and
+  the compiled daemon, and creates `/usr/bin/gdrive` (the window) and
+  `/usr/bin/gdrive-daemon` (the engine). Before this it shipped the launcher,
+  the Nautilus extension and the docs but no app code and no engine, so
+  installing it produced a menu entry that started nothing.
+- The two install paths are documented in the README and `AGENTS.md`, including
+  what each one owns. The systemd **user** units stay out of the package: a
+  postinst runs as root and cannot write `~/.config/systemd/user` for the real
+  user, so `setup.sh` remains their only author.
+- `launch.sh` looks for the daemon in the clone build (release, then debug),
+  then `~/.local/bin` and `/usr/bin`, so the packaged and per-user installs use
+  the same startup path instead of duplicating it in a wrapper.
+- `make install` installs the `.deb` through `apt` (which resolves the
+  dependencies) instead of running the retired root installer, `make uninstall`
+  removes the package, and `make check-deb` builds and asserts it.
 
 ### Fixed
+
+- The published package was `Architecture: all` while shipping a compiled
+  daemon; `build-deb.sh` now substitutes `dpkg --print-architecture` into the
+  control file, which keeps `any` only as a documented placeholder.
+- `Depends` no longer lists `gnome-online-accounts` or `gir1.2-goa-1.0`: GOA
+  3.58 dropped Drive file support, the app authenticates through rclone, and
+  requiring the packages only made an install pull a stack the code never uses.
+- `desktop-files/gdrive-settings.desktop` no longer ships the literal
+  `RUTA_DEL_PROYECTO`: the launcher path is a build-time placeholder resolved by
+  `build-deb.sh`, and the checker fails if any placeholder survives into the
+  package.
+- `verify.sh` checks what the two supported paths actually install:
+  dependencies the code imports, the packaged layout, the per-user layout, both
+  systemd units (`is-enabled` and `PartOf=graphical-session.target`), the D-Bus
+  name, and the rclone remote. The `/usr/local/bin/gdrive-sync` and autostart
+  checks belong to the retired root installer and are now informational.
 
 - **Every Rust rclone wrapper was broken, and leaked output.** `run()` left the
   child's stdout inherited and then called `wait_with_output()` after
