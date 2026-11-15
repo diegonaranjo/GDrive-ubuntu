@@ -460,10 +460,10 @@ async fn run_sync(
                     &state_clone.config.lock().unwrap(),
                     Level::Error,
                     "Daemon",
-                    &e.to_string(),
+                    &e.message(),
                     true,
                 );
-                e.to_string()
+                e.message()
             }
             Err(e) => {
                 set_status_nosignal(&state_clone, SyncStatus::Error);
@@ -730,7 +730,10 @@ fn start_watcher(
             &state.config.lock().unwrap(),
             Level::Error,
             "Watcher",
-            &format!("sync_dir no existe: {}", path.display()),
+            &crate::i18n::t_args(
+                "log.daemon.sync_dir_missing",
+                &[&path.display().to_string()],
+            ),
             false,
         );
         return Err(());
@@ -742,7 +745,7 @@ fn start_watcher(
                 &state.config.lock().unwrap(),
                 Level::Error,
                 "Watcher",
-                &format!("no se pudo iniciar el watcher: {e}"),
+                &crate::i18n::t_args("log.daemon.watcher_start_failed", &[&e.to_string()]),
                 false,
             );
         })?;
@@ -750,7 +753,7 @@ fn start_watcher(
         &state.config.lock().unwrap(),
         Level::Info,
         "Watcher",
-        &format!("observando cambios en {}", path.display()),
+        &crate::i18n::t_args("log.daemon.watching", &[&path.display().to_string()]),
         false,
     );
     Ok(rx)

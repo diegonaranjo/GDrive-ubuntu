@@ -217,7 +217,7 @@ impl SyncEngine {
         let stderr = child
             .stderr
             .take()
-            .ok_or_else(|| Error::Rclone("sin stderr disponible".into()))?;
+            .ok_or_else(|| Error::Rclone(crate::i18n::t("log.sync.no_stderr")))?;
         use std::io::{BufRead, BufReader};
         let reader = BufReader::new(stderr);
 
@@ -289,7 +289,8 @@ impl SyncEngine {
         // The success path left no trace of rclone in the log, so a run that
         // "completes" in the same second is undeterminable. The last stats
         // line says how much actually moved (or that nothing moved at all).
-        let summary = last_stats.as_deref().unwrap_or("sin transferencias");
+        let no_transfers = crate::i18n::t("log.sync.no_transfers");
+        let summary = last_stats.as_deref().unwrap_or(no_transfers.as_str());
         log_write(
             &self.config,
             Level::Info,
@@ -459,7 +460,7 @@ impl SyncEngine {
                 &self.config,
                 Level::Error,
                 "Sync",
-                &format!("No se pudo leer el lock de bisync: {}", lock.display()),
+                &crate::i18n::t_args("log.sync.lock_unreadable", &[&lock.display().to_string()]),
                 true,
             );
             return;
@@ -472,7 +473,10 @@ impl SyncEngine {
             &self.config,
             Level::Info,
             "Sync",
-            &format!("Lock huérfano eliminado: {}", lock.display()),
+            &crate::i18n::t_args(
+                "log.sync.orphan_lock_removed",
+                &[&lock.display().to_string()],
+            ),
             true,
         );
     }

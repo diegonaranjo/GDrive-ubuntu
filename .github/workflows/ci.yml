@@ -78,6 +78,10 @@ jobs:
       - name: Verify UI syntax
         run: |
           python3 -m py_compile gdrive/*.py gdrive/pages/*.py gdrive-app.py gdrive-tray.py
+
+      - name: Catalog parity (es/en)
+        run: python3 -m unittest discover -s gdrive/tests -v
+
   package:
     name: Package (.deb)
     runs-on: ubuntu-latest

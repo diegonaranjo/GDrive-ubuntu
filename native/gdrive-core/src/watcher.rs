@@ -75,9 +75,9 @@ impl DirWatcher {
         let path = self.path.clone();
         // Synchronous check so the error is returned to the caller.
         if !path.exists() {
-            return Err(Error::Rclone(format!(
-                "watch dir no existe: {}",
-                path.display()
+            return Err(Error::Rclone(crate::i18n::t_args(
+                "log.watcher.dir_missing",
+                &[&path.display().to_string()],
             )));
         }
 
@@ -99,7 +99,12 @@ impl DirWatcher {
             }
             last_event.store(now_ms(), Ordering::SeqCst);
         })
-        .map_err(|e| Error::Rclone(format!("crear watcher: {e}")))?;
+        .map_err(|e| {
+            Error::Rclone(crate::i18n::t_args(
+                "log.watcher.create_failed",
+                &[&e.to_string()],
+            ))
+        })?;
 
         watcher
             .watch(&path, RecursiveMode::Recursive)

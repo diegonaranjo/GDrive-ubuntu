@@ -16,7 +16,8 @@ def load_theme():
     try:
         css.load_from_path(str(THEME_FILE))
     except GLib.Error as e:
-        print(f"[theme] No se pudo cargar {THEME_FILE}: {e}")
+        from .i18n import t
+        print(f"[theme] {t('theme.load_failed', path=THEME_FILE, error=e)}")
         return
     Gtk.StyleContext.add_provider_for_display(
         Gdk.Display.get_default(), css,
